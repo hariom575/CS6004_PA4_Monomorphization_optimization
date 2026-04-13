@@ -1,0 +1,34 @@
+class D extends C
+{
+
+    void <init>()
+    {
+        D l0;
+
+        l0 := @this: D;
+
+        specialinvoke l0.<C: void <init>()>();
+
+        return;
+    }
+
+    void foo(A)
+    {
+        java.io.PrintStream $stack3;
+        A l1;
+        D l0;
+        int $stack2;
+
+        l0 := @this: D;
+
+        l1 := @parameter0: A;
+
+        $stack3 = <java.lang.System: java.io.PrintStream out>;
+
+        $stack2 = l1.<A: int x>;
+
+        virtualinvoke $stack3.<java.io.PrintStream: void println(int)>($stack2);
+
+        return;
+    }
+}

@@ -1,0 +1,41 @@
+public class Test11 extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        Test11 l0;
+
+        l0 := @this: Test11;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void main(java.lang.String[])
+    {
+        java.io.PrintStream $stack3_inl_foo_0;
+        A $stack4;
+        D $stack5;
+        int $stack2_inl_foo_0;
+        java.lang.String[] l0;
+
+        l0 := @parameter0: java.lang.String[];
+
+        $stack4 = new A;
+
+        specialinvoke $stack4.<A: void <init>()>();
+
+        $stack5 = new D;
+
+        specialinvoke $stack5.<D: void <init>()>();
+
+        $stack3_inl_foo_0 = <java.lang.System: java.io.PrintStream out>;
+
+        $stack2_inl_foo_0 = $stack4.<A: int x>;
+
+        virtualinvoke $stack3_inl_foo_0.<java.io.PrintStream: void println(int)>($stack2_inl_foo_0);
+
+        return;
+    }
+}
