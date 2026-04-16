@@ -1,0 +1,28 @@
+class Bus6 extends Vehicle6
+{
+
+    void <init>()
+    {
+        Bus6 l0;
+
+        l0 := @this: Bus6;
+
+        specialinvoke l0.<Vehicle6: void <init>()>();
+
+        return;
+    }
+
+    public void drive()
+    {
+        java.io.PrintStream $stack1;
+        Bus6 l0;
+
+        l0 := @this: Bus6;
+
+        $stack1 = <java.lang.System: java.io.PrintStream out>;
+
+        specialinvoke $stack1.<java.io.PrintStream: void println(java.lang.String)>("Bus driving");
+
+        return;
+    }
+}

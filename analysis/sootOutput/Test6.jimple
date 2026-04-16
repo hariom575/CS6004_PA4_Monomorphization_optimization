@@ -1,0 +1,81 @@
+public class Test6 extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        Test6 l0;
+
+        l0 := @this: Test6;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void main(java.lang.String[])
+    {
+        java.io.PrintStream $stack3;
+        Vehicle6 l2;
+        Bike6 $stack8, $cast_Bike6_12674626264106;
+        Bus6 $stack5, $cast_Bus6_12674624146543;
+        java.lang.String[] l0;
+        int l1, $stack4;
+        Car6 $stack6, $cast_Car6_12674626277531;
+
+        l0 := @parameter0: java.lang.String[];
+
+        l1 = lengthof l0;
+
+        $stack3 = <java.lang.System: java.io.PrintStream out>;
+
+        specialinvoke $stack3.<java.io.PrintStream: void println(int)>(l1);
+
+        $stack4 = l1 % 3;
+
+        lookupswitch($stack4)
+        {
+            case 0: goto label1;
+            case 1: goto label2;
+            default: goto label3;
+        };
+
+     label1:
+        $stack6 = new Car6;
+
+        specialinvoke $stack6.<Car6: void <init>()>();
+
+        l2 = $stack6;
+
+        goto label4;
+
+     label2:
+        $stack5 = new Bus6;
+
+        specialinvoke $stack5.<Bus6: void <init>()>();
+
+        l2 = $stack5;
+
+        goto label4;
+
+     label3:
+        $stack8 = new Bike6;
+
+        specialinvoke $stack8.<Bike6: void <init>()>();
+
+        l2 = $stack8;
+
+     label4:
+        specialinvoke $cast_Bus6_12674624146543.<Bus6: void drive()>();
+
+        specialinvoke $cast_Bike6_12674626264106.<Bike6: void drive()>();
+
+        specialinvoke $cast_Car6_12674626277531.<Car6: void drive()>();
+
+        $cast_Car6_12674626277531 = (Car6) l2;
+
+        goto label5;
+
+     label5:
+        return;
+    }
+}

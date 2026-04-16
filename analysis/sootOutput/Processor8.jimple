@@ -1,0 +1,5 @@
+interface  Processor8 extends java.lang.Object
+{
+
+    public abstract java.lang.String process(java.lang.String);
+}

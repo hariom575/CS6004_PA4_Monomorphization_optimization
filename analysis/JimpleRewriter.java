@@ -160,25 +160,31 @@ public class JimpleRewriter {
     // ── Devirtualisation ─────────────────────────────────────────
 
     /**
-     * Replace VirtualInvokeExpr / InterfaceInvokeExpr with a
-     * StaticInvokeExpr targeting the single known concrete method.
+     * Devirtualise a call site: replace VirtualInvokeExpr / InterfaceInvokeExpr
+     * with SpecialInvokeExpr targeting the single known concrete method.
      *
-     * Before:  virtualinvoke r.<C: void foo()>()
-     * After:   staticinvoke <D: void foo()>(r)
+     * Before:  virtualinvoke   r.<C: void foo()>()
+     * After:   specialinvoke   r.<D: void foo()>()   ← same receiver, no vtable
      *
-     * The receiver becomes the first explicit argument.
+     * WHY SpecialInvokeExpr (not StaticInvokeExpr):
+     *   StaticInvokeExpr requires ACC_STATIC on the target method.
+     *   Virtual methods are not static, so using StaticInvokeExpr causes
+     *   Soot's body validator to throw "wrong static-ness".
+     *   SpecialInvokeExpr keeps the receiver in its normal slot and
+     *   resolves to a specific named method without a vtable lookup —
+     *   exactly what devirtualisation means.  The JVM uses invokespecial
+     *   for constructors and private methods; we extend it to known-mono
+     *   virtual calls.
+     *
      * No control-flow changes — one stmt in, one stmt out.
      */
     private void devirtualise(CallSiteInfo site, SootMethod callee) {
         InvokeExpr oldExpr = site.invoke;
         if (!(oldExpr instanceof InstanceInvokeExpr iie)) return;
 
-        // Build args: receiver + original args
-        List<Value> args = new ArrayList<>();
-        args.add(iie.getBase());
-        args.addAll(iie.getArgs());
-
-        StaticInvokeExpr newExpr = Jimple.v().newStaticInvokeExpr(callee.makeRef(), args);
+        // SpecialInvokeExpr: receiver stays as-is, method resolves directly
+        SpecialInvokeExpr newExpr = Jimple.v().newSpecialInvokeExpr(
+            (Local) iie.getBase(), callee.makeRef(), iie.getArgs());
         patchInvokeExpr(site.stmt, newExpr);
     }
 
@@ -412,7 +418,7 @@ public class JimpleRewriter {
             armFirstUnits.add(null); // fallback = original call stmt (already in place)
         } else {
             // Direct call to the last target (else arm)
-            List<Unit> elseArm = buildDirectCallArm(lastTarget, receiver, origArgs, returnTarget);
+            List<Unit> elseArm = buildDirectCallArm(lastTarget, receiver, origArgs, returnTarget, callerBody);
             Unit gotoEnd = Jimple.v().newGotoStmt(doneNop);
             for (int i = elseArm.size() - 1; i >= 0; i--)
                 units.insertBefore(elseArm.get(i), doneNop);
@@ -424,7 +430,7 @@ public class JimpleRewriter {
         // Insert in reverse order so arm0 ends up first
         for (int i = numTests - 1; i >= 0; i--) {
             SootMethod target = targets.get(i);
-            List<Unit> arm = buildDirectCallArm(target, receiver, origArgs, returnTarget);
+            List<Unit> arm = buildDirectCallArm(target, receiver, origArgs, returnTarget, callerBody);
             Unit gotoEnd = Jimple.v().newGotoStmt(doneNop);
 
             // Insert arm units + goto BEFORE the previously inserted arm
@@ -483,28 +489,38 @@ public class JimpleRewriter {
      *   $cast = (TargetClass) receiver;
      *   [lhs =] staticinvoke <TargetClass: ret m()>($cast, args...);
      */
+    /**
+     * Build one arm of a type-test chain: cast the receiver to the
+     * concrete type, then call the method directly via SpecialInvokeExpr.
+     *
+     * We insert an explicit cast so Soot's type-checker is satisfied
+     * that the receiver local has the right declared type for the
+     * SpecialInvokeExpr.  The cast is safe because the preceding
+     * instanceof check guarantees the runtime type.
+     *
+     *   $cast_TypeA = (TypeA) receiver;
+     *   specialinvoke $cast_TypeA.<TypeA: ret m()>(args...);
+     */
     private List<Unit> buildDirectCallArm(SootMethod target, Local receiver,
-                                           List<Value> origArgs, Local returnTarget) {
+                                           List<Value> origArgs, Local returnTarget,
+                                           Body callerBody) {
         List<Unit> arm = new ArrayList<>();
         SootClass  cls      = target.getDeclaringClass();
-        Type       castType = cls.getType();
+        RefType    castType = RefType.v(cls);
 
-        // $cast = (TargetClass) receiver
+        // Cast receiver to the concrete type.
+        // SpecialInvokeExpr requires the base local to be declared as
+        // (a subtype of) the method's declaring class.
         Local castLocal = Jimple.v().newLocal(
             "$cast_" + cls.getShortName() + "_" + System.nanoTime(), castType);
-        // NOTE: castLocal is added to caller body in buildTypeTestChain caller context.
-        // We add it here by side-effect via the rewriteXxx methods.
-        // Actually we need the body — so we accept a slight approximation:
-        // use the receiver directly (it IS a subtype, so no cast needed for
-        // the direct call since we pass it as the first arg to a static invoke).
-        // The static invoke doesn't need a cast — the type checker accepts it
-        // because the local's declared type is a supertype.
+        callerBody.getLocals().add(castLocal);
 
-        List<Value> directArgs = new ArrayList<>();
-        directArgs.add(receiver);
-        directArgs.addAll(origArgs);
+        AssignStmt castStmt = Jimple.v().newAssignStmt(
+            castLocal, Jimple.v().newCastExpr(receiver, castType));
 
-        StaticInvokeExpr directCall = Jimple.v().newStaticInvokeExpr(target.makeRef(), directArgs);
+        // SpecialInvokeExpr: receiver = castLocal, no vtable lookup
+        SpecialInvokeExpr directCall = Jimple.v().newSpecialInvokeExpr(
+            castLocal, target.makeRef(), origArgs);
 
         Unit callUnit;
         if (returnTarget != null)
@@ -512,6 +528,7 @@ public class JimpleRewriter {
         else
             callUnit = Jimple.v().newInvokeStmt(directCall);
 
+        arm.add(castStmt);
         arm.add(callUnit);
         return arm;
     }
@@ -524,7 +541,7 @@ public class JimpleRewriter {
         System.out.println("\n── Rewrite summary (Jimple transformations applied) ────────");
         System.out.printf("  Inlined            : %3d  (callee body pasted in, vtable gone)%n",
             inlinedCount);
-        System.out.printf("  Devirtualised      : %3d  (virtualinvoke → staticinvoke)%n",
+        System.out.printf("  Devirtualised      : %3d  (virtualinvoke → specialinvoke)%n",
             devirtCount);
         System.out.printf("  Guarded inline     : %3d  (instanceof + 2 direct calls)%n",
             guardedCount);

@@ -1,0 +1,31 @@
+class BigWorker12 extends Doer12
+{
+
+    void <init>()
+    {
+        BigWorker12 l0;
+
+        l0 := @this: BigWorker12;
+
+        specialinvoke l0.<Doer12: void <init>()>();
+
+        return;
+    }
+
+    public void work()
+    {
+        java.io.PrintStream $stack24;
+        java.lang.String $stack25;
+        BigWorker12 l0;
+
+        l0 := @this: BigWorker12;
+
+        $stack24 = <java.lang.System: java.io.PrintStream out>;
+
+        $stack25 = dynamicinvoke "makeConcatWithConstants" <java.lang.String (int)>(8704) <java.lang.invoke.StringConcatFactory: java.lang.invoke.CallSite makeConcatWithConstants(java.lang.invoke.MethodHandles$Lookup,java.lang.String,java.lang.invoke.MethodType,java.lang.String,java.lang.Object[])>("big: \u0001");
+
+        specialinvoke $stack24.<java.io.PrintStream: void println(java.lang.String)>($stack25);
+
+        return;
+    }
+}

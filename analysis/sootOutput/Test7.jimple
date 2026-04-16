@@ -1,0 +1,38 @@
+public class Test7 extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        Test7 l0;
+
+        l0 := @this: Test7;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void main(java.lang.String[])
+    {
+        Worker7 $stack1_inl_run_0;
+        java.lang.String[] l0;
+        HardWorker7 $stack3;
+        Container7 $stack4;
+
+        l0 := @parameter0: java.lang.String[];
+
+        $stack3 = new HardWorker7;
+
+        specialinvoke $stack3.<HardWorker7: void <init>()>();
+
+        $stack4 = new Container7;
+
+        specialinvoke $stack4.<Container7: void <init>(Worker7)>($stack3);
+
+        $stack1_inl_run_0 = $stack4.<Container7: Worker7 worker>;
+
+        interfaceinvoke $stack1_inl_run_0.<Worker7: void doWork()>();
+
+        return;
+    }
+}

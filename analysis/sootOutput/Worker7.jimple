@@ -1,0 +1,5 @@
+interface  Worker7 extends java.lang.Object
+{
+
+    public abstract void doWork();
+}

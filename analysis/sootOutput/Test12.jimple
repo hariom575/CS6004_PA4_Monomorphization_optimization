@@ -1,0 +1,45 @@
+public class Test12 extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        Test12 l0;
+
+        l0 := @this: Test12;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void main(java.lang.String[])
+    {
+        java.io.PrintStream $stack24_inl_work_0, $stack1_inl_work_1;
+        java.lang.String[] l0;
+        TinyWorker12 $stack3;
+        java.lang.String $stack25_inl_work_0;
+        BigWorker12 $stack4;
+
+        l0 := @parameter0: java.lang.String[];
+
+        $stack3 = new TinyWorker12;
+
+        specialinvoke $stack3.<TinyWorker12: void <init>()>();
+
+        $stack4 = new BigWorker12;
+
+        specialinvoke $stack4.<BigWorker12: void <init>()>();
+
+        $stack1_inl_work_1 = <java.lang.System: java.io.PrintStream out>;
+
+        virtualinvoke $stack1_inl_work_1.<java.io.PrintStream: void println(java.lang.String)>("tiny");
+
+        $stack24_inl_work_0 = <java.lang.System: java.io.PrintStream out>;
+
+        $stack25_inl_work_0 = dynamicinvoke "makeConcatWithConstants" <java.lang.String (int)>(8704) <java.lang.invoke.StringConcatFactory: java.lang.invoke.CallSite makeConcatWithConstants(java.lang.invoke.MethodHandles$Lookup,java.lang.String,java.lang.invoke.MethodType,java.lang.String,java.lang.Object[])>("big: \u0001");
+
+        virtualinvoke $stack24_inl_work_0.<java.io.PrintStream: void println(java.lang.String)>($stack25_inl_work_0);
+
+        return;
+    }
+}

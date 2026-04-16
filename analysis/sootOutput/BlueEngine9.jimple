@@ -1,0 +1,28 @@
+class BlueEngine9 extends java.lang.Object implements Engine9
+{
+
+    void <init>()
+    {
+        BlueEngine9 l0;
+
+        l0 := @this: BlueEngine9;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public void run()
+    {
+        java.io.PrintStream $stack1;
+        BlueEngine9 l0;
+
+        l0 := @this: BlueEngine9;
+
+        $stack1 = <java.lang.System: java.io.PrintStream out>;
+
+        specialinvoke $stack1.<java.io.PrintStream: void println(java.lang.String)>("Blue engine");
+
+        return;
+    }
+}

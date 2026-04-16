@@ -1,0 +1,28 @@
+class Bike6 extends Vehicle6
+{
+
+    void <init>()
+    {
+        Bike6 l0;
+
+        l0 := @this: Bike6;
+
+        specialinvoke l0.<Vehicle6: void <init>()>();
+
+        return;
+    }
+
+    public void drive()
+    {
+        java.io.PrintStream $stack1;
+        Bike6 l0;
+
+        l0 := @this: Bike6;
+
+        $stack1 = <java.lang.System: java.io.PrintStream out>;
+
+        specialinvoke $stack1.<java.io.PrintStream: void println(java.lang.String)>("Bike riding");
+
+        return;
+    }
+}

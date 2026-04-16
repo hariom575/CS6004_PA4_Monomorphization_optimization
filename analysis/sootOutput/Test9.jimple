@@ -1,0 +1,51 @@
+public class Test9 extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        Test9 l0;
+
+        l0 := @this: Test9;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void main(java.lang.String[])
+    {
+        BlueEngine9 $stack6;
+        Holder9 $stack3, $stack5;
+        Engine9 $stack1_inl_start_0, $stack1_inl_start_1;
+        java.lang.String[] l0;
+        RedEngine9 $stack4;
+
+        l0 := @parameter0: java.lang.String[];
+
+        $stack3 = new Holder9;
+
+        $stack4 = new RedEngine9;
+
+        specialinvoke $stack4.<RedEngine9: void <init>()>();
+
+        specialinvoke $stack3.<Holder9: void <init>(Engine9)>($stack4);
+
+        $stack5 = new Holder9;
+
+        $stack6 = new BlueEngine9;
+
+        specialinvoke $stack6.<BlueEngine9: void <init>()>();
+
+        specialinvoke $stack5.<Holder9: void <init>(Engine9)>($stack6);
+
+        $stack1_inl_start_1 = $stack3.<Holder9: Engine9 engine>;
+
+        interfaceinvoke $stack1_inl_start_1.<Engine9: void run()>();
+
+        $stack1_inl_start_0 = $stack5.<Holder9: Engine9 engine>;
+
+        interfaceinvoke $stack1_inl_start_0.<Engine9: void run()>();
+
+        return;
+    }
+}

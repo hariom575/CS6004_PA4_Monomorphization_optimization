@@ -1,0 +1,42 @@
+public class Test8 extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        Test8 l0;
+
+        l0 := @this: Test8;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void main(java.lang.String[])
+    {
+        Inner8 $stack5, $stack2_inl_execute_0;
+        FastProc8 $stack4;
+        Outer8 $stack6;
+        java.lang.String[] l0;
+
+        l0 := @parameter0: java.lang.String[];
+
+        $stack4 = new FastProc8;
+
+        specialinvoke $stack4.<FastProc8: void <init>()>();
+
+        $stack5 = new Inner8;
+
+        specialinvoke $stack5.<Inner8: void <init>(Processor8)>($stack4);
+
+        $stack6 = new Outer8;
+
+        specialinvoke $stack6.<Outer8: void <init>(Inner8)>($stack5);
+
+        $stack2_inl_execute_0 = $stack6.<Outer8: Inner8 inner>;
+
+        virtualinvoke $stack2_inl_execute_0.<Inner8: void run(java.lang.String)>("hello");
+
+        return;
+    }
+}

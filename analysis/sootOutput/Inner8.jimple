@@ -1,0 +1,57 @@
+class Inner8 extends java.lang.Object
+{
+    Processor8 proc;
+
+    void <init>(Processor8)
+    {
+        Inner8 l0;
+        Processor8 l1;
+
+        l0 := @this: Inner8;
+
+        l1 := @parameter0: Processor8;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        l0.<Inner8: Processor8 proc> = l1;
+
+        return;
+    }
+
+    void run(java.lang.String)
+    {
+        java.io.PrintStream $stack4;
+        FastProc8 $cast_FastProc8_13306888628473;
+        Inner8 l0;
+        SlowProc8 $cast_SlowProc8_13306886556253;
+        Processor8 $stack3;
+        java.lang.String l1, l2;
+        boolean $iof_FastProc8_0;
+
+        l0 := @this: Inner8;
+
+        l1 := @parameter0: java.lang.String;
+
+        $stack3 = l0.<Inner8: Processor8 proc>;
+
+        $iof_FastProc8_0 = $stack3 instanceof FastProc8;
+
+        if $iof_FastProc8_0 != 0 goto label1;
+
+        specialinvoke $cast_SlowProc8_13306886556253.<SlowProc8: java.lang.String process(java.lang.String)>(l1);
+
+        l2 = specialinvoke $cast_FastProc8_13306888628473.<FastProc8: java.lang.String process(java.lang.String)>(l1);
+
+     label1:
+        $cast_FastProc8_13306888628473 = (FastProc8) $stack3;
+
+        goto label2;
+
+     label2:
+        $stack4 = <java.lang.System: java.io.PrintStream out>;
+
+        specialinvoke $stack4.<java.io.PrintStream: void println(java.lang.String)>(l2);
+
+        return;
+    }
+}

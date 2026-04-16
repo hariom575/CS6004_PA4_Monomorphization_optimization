@@ -1,0 +1,16 @@
+abstract class Doer12 extends java.lang.Object
+{
+
+    void <init>()
+    {
+        Doer12 l0;
+
+        l0 := @this: Doer12;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    abstract void work();
+}

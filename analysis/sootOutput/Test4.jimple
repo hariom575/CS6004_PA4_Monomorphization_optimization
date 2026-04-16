@@ -1,0 +1,55 @@
+public class Test4 extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        Test4 l0;
+
+        l0 := @this: Test4;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void main(java.lang.String[])
+    {
+        Square4 $stack8;
+        java.io.PrintStream $stack10;
+        Circle4 $stack7;
+        java.lang.String[] l0;
+        double $stack9, $stack1_inl_area_0, $stack2_inl_area_0, $stack3_inl_area_0, $stack1_inl_area_1, $stack2_inl_area_1, $stack3_inl_area_1, $stack4_inl_area_1;
+
+        l0 := @parameter0: java.lang.String[];
+
+        $stack7 = new Circle4;
+
+        specialinvoke $stack7.<Circle4: void <init>(double)>(5.0);
+
+        $stack8 = new Square4;
+
+        specialinvoke $stack8.<Square4: void <init>(double)>(5.0);
+
+        $stack1_inl_area_1 = $stack7.<Circle4: double r>;
+
+        $stack3_inl_area_1 = 3.14159 * $stack1_inl_area_1;
+
+        $stack2_inl_area_1 = $stack7.<Circle4: double r>;
+
+        $stack4_inl_area_1 = $stack3_inl_area_1 * $stack2_inl_area_1;
+
+        $stack2_inl_area_0 = $stack8.<Square4: double s>;
+
+        $stack1_inl_area_0 = $stack8.<Square4: double s>;
+
+        $stack3_inl_area_0 = $stack2_inl_area_0 * $stack1_inl_area_0;
+
+        $stack10 = <java.lang.System: java.io.PrintStream out>;
+
+        $stack9 = $stack4_inl_area_1 + $stack3_inl_area_0;
+
+        virtualinvoke $stack10.<java.io.PrintStream: void println(double)>($stack9);
+
+        return;
+    }
+}

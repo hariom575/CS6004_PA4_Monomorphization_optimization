@@ -1,0 +1,28 @@
+class TinyWorker12 extends Doer12
+{
+
+    void <init>()
+    {
+        TinyWorker12 l0;
+
+        l0 := @this: TinyWorker12;
+
+        specialinvoke l0.<Doer12: void <init>()>();
+
+        return;
+    }
+
+    public void work()
+    {
+        java.io.PrintStream $stack1;
+        TinyWorker12 l0;
+
+        l0 := @this: TinyWorker12;
+
+        $stack1 = <java.lang.System: java.io.PrintStream out>;
+
+        specialinvoke $stack1.<java.io.PrintStream: void println(java.lang.String)>("tiny");
+
+        return;
+    }
+}

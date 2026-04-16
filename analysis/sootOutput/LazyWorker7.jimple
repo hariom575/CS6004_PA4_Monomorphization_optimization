@@ -1,0 +1,28 @@
+class LazyWorker7 extends java.lang.Object implements Worker7
+{
+
+    void <init>()
+    {
+        LazyWorker7 l0;
+
+        l0 := @this: LazyWorker7;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public void doWork()
+    {
+        java.io.PrintStream $stack1;
+        LazyWorker7 l0;
+
+        l0 := @this: LazyWorker7;
+
+        $stack1 = <java.lang.System: java.io.PrintStream out>;
+
+        specialinvoke $stack1.<java.io.PrintStream: void println(java.lang.String)>("Working lazily");
+
+        return;
+    }
+}

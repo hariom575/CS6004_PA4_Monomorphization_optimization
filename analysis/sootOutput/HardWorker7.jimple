@@ -1,0 +1,28 @@
+class HardWorker7 extends java.lang.Object implements Worker7
+{
+
+    void <init>()
+    {
+        HardWorker7 l0;
+
+        l0 := @this: HardWorker7;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public void doWork()
+    {
+        java.io.PrintStream $stack1;
+        HardWorker7 l0;
+
+        l0 := @this: HardWorker7;
+
+        $stack1 = <java.lang.System: java.io.PrintStream out>;
+
+        specialinvoke $stack1.<java.io.PrintStream: void println(java.lang.String)>("Working hard");
+
+        return;
+    }
+}

@@ -1,0 +1,45 @@
+class Outer8 extends java.lang.Object
+{
+    Inner8 inner;
+
+    void <init>(Inner8)
+    {
+        Outer8 l0;
+        Inner8 l1;
+
+        l0 := @this: Outer8;
+
+        l1 := @parameter0: Inner8;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        l0.<Outer8: Inner8 inner> = l1;
+
+        return;
+    }
+
+    void execute(java.lang.String)
+    {
+        java.io.PrintStream $stack4_inl_run_1;
+        Inner8 $stack2;
+        Outer8 l0;
+        Processor8 $stack3_inl_run_1;
+        java.lang.String l1, l2_inl_run_1;
+
+        l0 := @this: Outer8;
+
+        l1 := @parameter0: java.lang.String;
+
+        $stack2 = l0.<Outer8: Inner8 inner>;
+
+        $stack3_inl_run_1 = $stack2.<Inner8: Processor8 proc>;
+
+        l2_inl_run_1 = interfaceinvoke $stack3_inl_run_1.<Processor8: java.lang.String process(java.lang.String)>(l1);
+
+        $stack4_inl_run_1 = <java.lang.System: java.io.PrintStream out>;
+
+        virtualinvoke $stack4_inl_run_1.<java.io.PrintStream: void println(java.lang.String)>(l2_inl_run_1);
+
+        return;
+    }
+}

@@ -1,0 +1,28 @@
+class Dog5 extends Animal5
+{
+
+    void <init>()
+    {
+        Dog5 l0;
+
+        l0 := @this: Dog5;
+
+        specialinvoke l0.<Animal5: void <init>()>();
+
+        return;
+    }
+
+    public void speak()
+    {
+        java.io.PrintStream $stack1;
+        Dog5 l0;
+
+        l0 := @this: Dog5;
+
+        $stack1 = <java.lang.System: java.io.PrintStream out>;
+
+        virtualinvoke $stack1.<java.io.PrintStream: void println(java.lang.String)>("Woof");
+
+        return;
+    }
+}

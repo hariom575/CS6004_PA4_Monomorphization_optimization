@@ -1,0 +1,16 @@
+abstract class Base1 extends java.lang.Object
+{
+
+    void <init>()
+    {
+        Base1 l0;
+
+        l0 := @this: Base1;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    abstract int compute();
+}

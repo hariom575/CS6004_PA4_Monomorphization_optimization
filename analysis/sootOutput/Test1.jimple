@@ -1,0 +1,33 @@
+public class Test1 extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        Test1 l0;
+
+        l0 := @this: Test1;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void main(java.lang.String[])
+    {
+        java.io.PrintStream $stack4;
+        Only $stack3;
+        java.lang.String[] l0;
+
+        l0 := @parameter0: java.lang.String[];
+
+        $stack3 = new Only;
+
+        specialinvoke $stack3.<Only: void <init>()>();
+
+        $stack4 = <java.lang.System: java.io.PrintStream out>;
+
+        specialinvoke $stack4.<java.io.PrintStream: void println(int)>(42);
+
+        return;
+    }
+}

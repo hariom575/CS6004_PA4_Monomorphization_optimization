@@ -1,0 +1,36 @@
+public class Test3 extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        Test3 l0;
+
+        l0 := @this: Test3;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void main(java.lang.String[])
+    {
+        java.io.PrintStream $stack2_inl_print_0;
+        FastPrinter $stack2;
+        java.lang.String[] l0;
+        java.lang.String $stack3_inl_print_0;
+
+        l0 := @parameter0: java.lang.String[];
+
+        $stack2 = new FastPrinter;
+
+        specialinvoke $stack2.<FastPrinter: void <init>()>();
+
+        $stack2_inl_print_0 = <java.lang.System: java.io.PrintStream out>;
+
+        $stack3_inl_print_0 = dynamicinvoke "makeConcatWithConstants" <java.lang.String (java.lang.String)>("hello") <java.lang.invoke.StringConcatFactory: java.lang.invoke.CallSite makeConcatWithConstants(java.lang.invoke.MethodHandles$Lookup,java.lang.String,java.lang.invoke.MethodType,java.lang.String,java.lang.Object[])>("[FAST] \u0001");
+
+        virtualinvoke $stack2_inl_print_0.<java.io.PrintStream: void println(java.lang.String)>($stack3_inl_print_0);
+
+        return;
+    }
+}
