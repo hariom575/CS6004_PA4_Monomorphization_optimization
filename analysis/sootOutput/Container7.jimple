@@ -20,9 +20,9 @@ class Container7 extends java.lang.Object
 
     void run()
     {
-        LazyWorker7 $cast_LazyWorker7_13047199864512;
+        LazyWorker7 $cast_LazyWorker7_16418668137487;
         Worker7 $stack1;
-        HardWorker7 $cast_HardWorker7_13047196783458;
+        HardWorker7 $cast_HardWorker7_16418663116616;
         Container7 l0;
         boolean $iof_LazyWorker7_0;
 
@@ -34,12 +34,12 @@ class Container7 extends java.lang.Object
 
         if $iof_LazyWorker7_0 != 0 goto label1;
 
-        specialinvoke $cast_HardWorker7_13047196783458.<HardWorker7: void doWork()>();
+        specialinvoke $cast_HardWorker7_16418663116616.<HardWorker7: void doWork()>();
 
-        specialinvoke $cast_LazyWorker7_13047199864512.<LazyWorker7: void doWork()>();
+        specialinvoke $cast_LazyWorker7_16418668137487.<LazyWorker7: void doWork()>();
 
      label1:
-        $cast_LazyWorker7_13047199864512 = (LazyWorker7) $stack1;
+        $cast_LazyWorker7_16418668137487 = (LazyWorker7) $stack1;
 
         goto label2;
 

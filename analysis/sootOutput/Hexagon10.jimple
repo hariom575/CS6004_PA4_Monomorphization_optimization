@@ -1,0 +1,38 @@
+class Hexagon10 extends Shape10
+{
+    double s;
+
+    void <init>(double)
+    {
+        Hexagon10 l0;
+        double l1;
+
+        l0 := @this: Hexagon10;
+
+        l1 := @parameter0: double;
+
+        specialinvoke l0.<Shape10: void <init>()>();
+
+        l0.<Hexagon10: double s> = l1;
+
+        return;
+    }
+
+    public double area()
+    {
+        Hexagon10 l0;
+        double $stack1, $stack2, $stack3, $stack4;
+
+        l0 := @this: Hexagon10;
+
+        $stack1 = l0.<Hexagon10: double s>;
+
+        $stack3 = 2.6 * $stack1;
+
+        $stack2 = l0.<Hexagon10: double s>;
+
+        $stack4 = $stack3 * $stack2;
+
+        return $stack4;
+    }
+}

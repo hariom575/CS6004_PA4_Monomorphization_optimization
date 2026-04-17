@@ -27,7 +27,7 @@ class D extends C
 
         $stack2 = l1.<A: int x>;
 
-        virtualinvoke $stack3.<java.io.PrintStream: void println(int)>($stack2);
+        specialinvoke $stack3.<java.io.PrintStream: void println(int)>($stack2);
 
         return;
     }

@@ -14,14 +14,16 @@ class Cat5 extends Animal5
 
     public void speak()
     {
-        java.io.PrintStream $stack1;
+        java.io.PrintStream $stack1, $dvt_PrintStream_1;
         Cat5 l0;
 
         l0 := @this: Cat5;
 
         $stack1 = <java.lang.System: java.io.PrintStream out>;
 
-        virtualinvoke $stack1.<java.io.PrintStream: void println(java.lang.String)>("Meow");
+        $dvt_PrintStream_1 = (java.io.PrintStream) $stack1;
+
+        virtualinvoke $dvt_PrintStream_1.<java.io.PrintStream: void println(java.lang.String)>("Meow");
 
         return;
     }

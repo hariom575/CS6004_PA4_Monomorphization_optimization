@@ -16,11 +16,11 @@ public class Test6 extends java.lang.Object
     {
         java.io.PrintStream $stack3;
         Vehicle6 l2;
-        Bike6 $stack8, $cast_Bike6_12674626264106;
-        Bus6 $stack5, $cast_Bus6_12674624146543;
+        Bike6 $stack8, $cast_Bike6_17301303441005;
+        Bus6 $stack5, $cast_Bus6_17301301167026;
         java.lang.String[] l0;
         int l1, $stack4;
-        Car6 $stack6, $cast_Car6_12674626277531;
+        Car6 $stack6, $cast_Car6_17301303452545;
 
         l0 := @parameter0: java.lang.String[];
 
@@ -65,13 +65,13 @@ public class Test6 extends java.lang.Object
         l2 = $stack8;
 
      label4:
-        specialinvoke $cast_Bus6_12674624146543.<Bus6: void drive()>();
+        specialinvoke $cast_Bus6_17301301167026.<Bus6: void drive()>();
 
-        specialinvoke $cast_Bike6_12674626264106.<Bike6: void drive()>();
+        specialinvoke $cast_Bike6_17301303441005.<Bike6: void drive()>();
 
-        specialinvoke $cast_Car6_12674626277531.<Car6: void drive()>();
+        specialinvoke $cast_Car6_17301303452545.<Car6: void drive()>();
 
-        $cast_Car6_12674626277531 = (Car6) l2;
+        $cast_Car6_17301303452545 = (Car6) l2;
 
         goto label5;
 

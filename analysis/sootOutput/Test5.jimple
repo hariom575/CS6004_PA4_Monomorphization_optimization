@@ -14,12 +14,12 @@ public class Test5 extends java.lang.Object
 
     public static void main(java.lang.String[])
     {
-        Cat5 $stack4;
-        int $stack3;
-        Dog5 $stack5;
+        Cat5 $stack4, $cast_Cat5_18373243897761;
         java.lang.String[] l0;
+        int $stack3;
+        Dog5 $stack5, $cast_Dog5_18373241861745;
         Animal5 l2;
-        boolean $stack7;
+        boolean $stack7, $iof_Cat5_0;
 
         l0 := @parameter0: java.lang.String[];
 
@@ -53,8 +53,23 @@ public class Test5 extends java.lang.Object
         l2 = $stack4;
 
      label4:
-        virtualinvoke l2.<Animal5: void speak()>();
+        $iof_Cat5_0 = l2 instanceof Cat5;
 
-        return;
+        if $iof_Cat5_0 != 0 goto label6;
+
+        $cast_Dog5_18373241861745 = (Dog5) l2;
+
+        specialinvoke $cast_Dog5_18373241861745.<Dog5: void speak()>();
+
+     label5:
+        goto label5;
+
+     label6:
+        $cast_Cat5_18373243897761 = (Cat5) l2;
+
+        specialinvoke $cast_Cat5_18373243897761.<Cat5: void speak()>();
+
+     label7:
+        goto label7;
     }
 }

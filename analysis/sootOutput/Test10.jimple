@@ -1,0 +1,95 @@
+public class Test10 extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        Test10 l0;
+
+        l0 := @this: Test10;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void main(java.lang.String[])
+    {
+        java.io.PrintStream $stack5;
+        Circle10 $stack10;
+        Square10 $stack9;
+        Shape10 l2;
+        java.lang.String[] l0;
+        Pentagon10 $stack4;
+        int l1, $stack3;
+        Hexagon10 $stack11;
+        Triangle10 $stack7;
+        double $stack6;
+
+        l0 := @parameter0: java.lang.String[];
+
+        l1 = lengthof l0;
+
+        $stack3 = l1 % 5;
+
+        tableswitch($stack3)
+        {
+            case 0: goto label1;
+            case 1: goto label2;
+            case 2: goto label3;
+            case 3: goto label4;
+            default: goto label5;
+        };
+
+     label1:
+        $stack10 = new Circle10;
+
+        specialinvoke $stack10.<Circle10: void <init>(double)>(1.0);
+
+        l2 = $stack10;
+
+        goto label6;
+
+     label2:
+        $stack9 = new Square10;
+
+        specialinvoke $stack9.<Square10: void <init>(double)>(1.0);
+
+        l2 = $stack9;
+
+        goto label6;
+
+     label3:
+        $stack7 = new Triangle10;
+
+        specialinvoke $stack7.<Triangle10: void <init>(double,double)>(2.0, 3.0);
+
+        l2 = $stack7;
+
+        goto label6;
+
+     label4:
+        $stack4 = new Pentagon10;
+
+        specialinvoke $stack4.<Pentagon10: void <init>(double)>(1.0);
+
+        l2 = $stack4;
+
+        goto label6;
+
+     label5:
+        $stack11 = new Hexagon10;
+
+        specialinvoke $stack11.<Hexagon10: void <init>(double)>(1.0);
+
+        l2 = $stack11;
+
+     label6:
+        $stack5 = <java.lang.System: java.io.PrintStream out>;
+
+        $stack6 = virtualinvoke l2.<Shape10: double area()>();
+
+        specialinvoke $stack5.<java.io.PrintStream: void println(double)>($stack6);
+
+        return;
+    }
+}

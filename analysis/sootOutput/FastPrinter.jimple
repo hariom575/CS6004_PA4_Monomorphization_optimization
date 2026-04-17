@@ -26,7 +26,7 @@ class FastPrinter extends java.lang.Object implements Printable3
 
         $stack3 = dynamicinvoke "makeConcatWithConstants" <java.lang.String (java.lang.String)>(l1) <java.lang.invoke.StringConcatFactory: java.lang.invoke.CallSite makeConcatWithConstants(java.lang.invoke.MethodHandles$Lookup,java.lang.String,java.lang.invoke.MethodType,java.lang.String,java.lang.Object[])>("[FAST] \u0001");
 
-        virtualinvoke $stack2.<java.io.PrintStream: void println(java.lang.String)>($stack3);
+        specialinvoke $stack2.<java.io.PrintStream: void println(java.lang.String)>($stack3);
 
         return;
     }

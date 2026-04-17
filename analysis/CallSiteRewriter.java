@@ -1,6 +1,5 @@
 package com.mono.rewriter;
 
-import com.mono.util.AnalysisStats;
 import com.mono.util.CallSiteInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,12 +76,6 @@ public class CallSiteRewriter {
      * fall back from inlining to devirtualisation only.
      */
     private static final int INLINE_THRESHOLD = 30;
-
-    private final AnalysisStats stats;
-
-    public CallSiteRewriter(AnalysisStats stats) {
-        this.stats = stats;
-    }
 
     // ---------------------------------------------------------------
     // Public API

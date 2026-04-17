@@ -21,9 +21,9 @@ class Inner8 extends java.lang.Object
     void run(java.lang.String)
     {
         java.io.PrintStream $stack4;
-        FastProc8 $cast_FastProc8_13306888628473;
+        FastProc8 $cast_FastProc8_16507770249889;
         Inner8 l0;
-        SlowProc8 $cast_SlowProc8_13306886556253;
+        SlowProc8 $cast_SlowProc8_16507767868818;
         Processor8 $stack3;
         java.lang.String l1, l2;
         boolean $iof_FastProc8_0;
@@ -38,12 +38,12 @@ class Inner8 extends java.lang.Object
 
         if $iof_FastProc8_0 != 0 goto label1;
 
-        specialinvoke $cast_SlowProc8_13306886556253.<SlowProc8: java.lang.String process(java.lang.String)>(l1);
+        specialinvoke $cast_SlowProc8_16507767868818.<SlowProc8: java.lang.String process(java.lang.String)>(l1);
 
-        l2 = specialinvoke $cast_FastProc8_13306888628473.<FastProc8: java.lang.String process(java.lang.String)>(l1);
+        l2 = specialinvoke $cast_FastProc8_16507770249889.<FastProc8: java.lang.String process(java.lang.String)>(l1);
 
      label1:
-        $cast_FastProc8_13306888628473 = (FastProc8) $stack3;
+        $cast_FastProc8_16507770249889 = (FastProc8) $stack3;
 
         goto label2;
 

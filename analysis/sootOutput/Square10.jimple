@@ -1,0 +1,36 @@
+class Square10 extends Shape10
+{
+    double s;
+
+    void <init>(double)
+    {
+        Square10 l0;
+        double l1;
+
+        l0 := @this: Square10;
+
+        l1 := @parameter0: double;
+
+        specialinvoke l0.<Shape10: void <init>()>();
+
+        l0.<Square10: double s> = l1;
+
+        return;
+    }
+
+    public double area()
+    {
+        Square10 l0;
+        double $stack1, $stack2, $stack3;
+
+        l0 := @this: Square10;
+
+        $stack2 = l0.<Square10: double s>;
+
+        $stack1 = l0.<Square10: double s>;
+
+        $stack3 = $stack2 * $stack1;
+
+        return $stack3;
+    }
+}
