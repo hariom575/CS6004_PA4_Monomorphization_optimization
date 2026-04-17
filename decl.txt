@@ -1,0 +1,9 @@
+AI Usage Declaration — CS6004 PA4
+
+AI tools (Claude) were used in the following limited capacities:
+- Looking up Soot API usage and documentation
+- Debugging specific Jimple/PatchingChain issues (e.g., the self-loop bug in insertBefore)
+- Reviewing code for correctness of the dataflow analysis transfer functions
+
+All algorithmic design, implementation decisions, and analysis logic were done by the team.
+The report was written by the team without AI assistance.

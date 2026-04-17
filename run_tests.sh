@@ -7,7 +7,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ANALYSIS="$ROOT/analysis"
+ANALYSIS="$ROOT/src"
 TESTCASES="$ROOT/testcases"
 SOOT="$ROOT/soot-4.6.0-jar-with-dependencies.jar"
 TMP="/tmp/pa4_$$"
@@ -48,7 +48,7 @@ if [ "${1:-}" != "" ]; then
     # Single test, full output
     run_one "Test$1" "true"
     echo ""
-    echo "Jimple output in: $ANALYSIS/sootOutput/"
+    echo "Jimple output in: $ROOT/src/sootOutput/"
     exit 0
 fi
 
@@ -97,4 +97,4 @@ echo ""
 echo "Total call sites scanned : $TOTAL_SITES"
 echo "Total rewrites applied   : $TOTAL_TRANSFORMED"
 echo ""
-echo "Jimple output in: $ANALYSIS/sootOutput/"
+echo "Jimple output in: $ROOT/src/sootOutput/"
