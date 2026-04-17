@@ -14,12 +14,12 @@ public class Test5 extends java.lang.Object
 
     public static void main(java.lang.String[])
     {
-        Cat5 $stack4, $cast_Cat5_18373243897761;
+        Cat5 $stack4, $cast_Cat5_39533270149350;
         java.lang.String[] l0;
         int $stack3;
-        Dog5 $stack5, $cast_Dog5_18373241861745;
+        Dog5 $stack5, $cast_Dog5_39533272396747;
         Animal5 l2;
-        boolean $stack7, $iof_Cat5_0;
+        boolean $stack7, $iof_Cat5_39533270149350;
 
         l0 := @parameter0: java.lang.String[];
 
@@ -53,23 +53,24 @@ public class Test5 extends java.lang.Object
         l2 = $stack4;
 
      label4:
-        $iof_Cat5_0 = l2 instanceof Cat5;
+        $iof_Cat5_39533270149350 = l2 instanceof Cat5;
 
-        if $iof_Cat5_0 != 0 goto label6;
+        if $iof_Cat5_39533270149350 != 0 goto label5;
 
-        $cast_Dog5_18373241861745 = (Dog5) l2;
+        $cast_Dog5_39533272396747 = (Dog5) l2;
 
-        specialinvoke $cast_Dog5_18373241861745.<Dog5: void speak()>();
+        specialinvoke $cast_Dog5_39533272396747.<Dog5: void speak()>();
+
+        goto label6;
 
      label5:
-        goto label5;
+        $cast_Cat5_39533270149350 = (Cat5) l2;
+
+        specialinvoke $cast_Cat5_39533270149350.<Cat5: void speak()>();
+
+        goto label6;
 
      label6:
-        $cast_Cat5_18373243897761 = (Cat5) l2;
-
-        specialinvoke $cast_Cat5_18373243897761.<Cat5: void speak()>();
-
-     label7:
-        goto label7;
+        return;
     }
 }

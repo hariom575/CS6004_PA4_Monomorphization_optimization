@@ -1,0 +1,16 @@
+abstract class Shape4 extends java.lang.Object
+{
+
+    void <init>()
+    {
+        Shape4 l0;
+
+        l0 := @this: Shape4;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    abstract double area();
+}

@@ -1,0 +1,16 @@
+abstract class Vehicle6 extends java.lang.Object
+{
+
+    void <init>()
+    {
+        Vehicle6 l0;
+
+        l0 := @this: Vehicle6;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    abstract void drive();
+}

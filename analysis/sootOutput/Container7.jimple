@@ -20,26 +20,30 @@ class Container7 extends java.lang.Object
 
     void run()
     {
-        LazyWorker7 $cast_LazyWorker7_16418668137487;
+        LazyWorker7 $cast_LazyWorker7_40000087133815;
         Worker7 $stack1;
-        HardWorker7 $cast_HardWorker7_16418663116616;
+        HardWorker7 $cast_HardWorker7_40000096735113;
         Container7 l0;
-        boolean $iof_LazyWorker7_0;
+        boolean $iof_LazyWorker7_40000087133815;
 
         l0 := @this: Container7;
 
         $stack1 = l0.<Container7: Worker7 worker>;
 
-        $iof_LazyWorker7_0 = $stack1 instanceof LazyWorker7;
+        $iof_LazyWorker7_40000087133815 = $stack1 instanceof LazyWorker7;
 
-        if $iof_LazyWorker7_0 != 0 goto label1;
+        if $iof_LazyWorker7_40000087133815 != 0 goto label1;
 
-        specialinvoke $cast_HardWorker7_16418663116616.<HardWorker7: void doWork()>();
+        $cast_HardWorker7_40000096735113 = (HardWorker7) $stack1;
 
-        specialinvoke $cast_LazyWorker7_16418668137487.<LazyWorker7: void doWork()>();
+        specialinvoke $cast_HardWorker7_40000096735113.<HardWorker7: void doWork()>();
+
+        goto label2;
 
      label1:
-        $cast_LazyWorker7_16418668137487 = (LazyWorker7) $stack1;
+        $cast_LazyWorker7_40000087133815 = (LazyWorker7) $stack1;
+
+        specialinvoke $cast_LazyWorker7_40000087133815.<LazyWorker7: void doWork()>();
 
         goto label2;
 

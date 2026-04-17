@@ -1,0 +1,53 @@
+class Holder9 extends java.lang.Object
+{
+    Engine9 engine;
+
+    void <init>(Engine9)
+    {
+        Engine9 l1;
+        Holder9 l0;
+
+        l0 := @this: Holder9;
+
+        l1 := @parameter0: Engine9;
+
+        specialinvoke l0.<java.lang.Object: void <init>()>();
+
+        l0.<Holder9: Engine9 engine> = l1;
+
+        return;
+    }
+
+    void start()
+    {
+        BlueEngine9 $cast_BlueEngine9_41975058684082;
+        Holder9 l0;
+        Engine9 $stack1;
+        RedEngine9 $cast_RedEngine9_41975061103097;
+        boolean $iof_BlueEngine9_41975058684082;
+
+        l0 := @this: Holder9;
+
+        $stack1 = l0.<Holder9: Engine9 engine>;
+
+        $iof_BlueEngine9_41975058684082 = $stack1 instanceof BlueEngine9;
+
+        if $iof_BlueEngine9_41975058684082 != 0 goto label1;
+
+        $cast_RedEngine9_41975061103097 = (RedEngine9) $stack1;
+
+        specialinvoke $cast_RedEngine9_41975061103097.<RedEngine9: void run()>();
+
+        goto label2;
+
+     label1:
+        $cast_BlueEngine9_41975058684082 = (BlueEngine9) $stack1;
+
+        specialinvoke $cast_BlueEngine9_41975058684082.<BlueEngine9: void run()>();
+
+        goto label2;
+
+     label2:
+        return;
+    }
+}

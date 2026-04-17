@@ -1,0 +1,23 @@
+class Only extends Base1
+{
+
+    void <init>()
+    {
+        Only l0;
+
+        l0 := @this: Only;
+
+        specialinvoke l0.<Base1: void <init>()>();
+
+        return;
+    }
+
+    public int compute()
+    {
+        Only l0;
+
+        l0 := @this: Only;
+
+        return 42;
+    }
+}

@@ -1,0 +1,43 @@
+class Triangle10 extends Shape10
+{
+    double b;
+    double h;
+
+    void <init>(double, double)
+    {
+        Triangle10 l0;
+        double l1, l3;
+
+        l0 := @this: Triangle10;
+
+        l1 := @parameter0: double;
+
+        l3 := @parameter1: double;
+
+        specialinvoke l0.<Shape10: void <init>()>();
+
+        l0.<Triangle10: double b> = l1;
+
+        l0.<Triangle10: double h> = l3;
+
+        return;
+    }
+
+    public double area()
+    {
+        Triangle10 l0;
+        double $stack1, $stack2, $stack3, $stack4;
+
+        l0 := @this: Triangle10;
+
+        $stack1 = l0.<Triangle10: double b>;
+
+        $stack3 = 0.5 * $stack1;
+
+        $stack2 = l0.<Triangle10: double h>;
+
+        $stack4 = $stack3 * $stack2;
+
+        return $stack4;
+    }
+}

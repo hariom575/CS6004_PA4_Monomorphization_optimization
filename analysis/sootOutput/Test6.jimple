@@ -14,13 +14,14 @@ public class Test6 extends java.lang.Object
 
     public static void main(java.lang.String[])
     {
-        java.io.PrintStream $stack3;
+        java.io.PrintStream $stack3, $dvt_PrintStream_0;
         Vehicle6 l2;
-        Bike6 $stack8, $cast_Bike6_17301303441005;
-        Bus6 $stack5, $cast_Bus6_17301301167026;
+        Bike6 $stack8, $cast_Bike6_39620431474177;
+        Bus6 $stack5, $cast_Bus6_39620431474178;
         java.lang.String[] l0;
         int l1, $stack4;
-        Car6 $stack6, $cast_Car6_17301303452545;
+        Car6 $stack6, $cast_Car6_39620431474176;
+        boolean $iof_Car6_39620431474176, $iof_Bike6_39620431474177, $iof_Bus6_39620431474178;
 
         l0 := @parameter0: java.lang.String[];
 
@@ -28,7 +29,9 @@ public class Test6 extends java.lang.Object
 
         $stack3 = <java.lang.System: java.io.PrintStream out>;
 
-        specialinvoke $stack3.<java.io.PrintStream: void println(int)>(l1);
+        $dvt_PrintStream_0 = (java.io.PrintStream) $stack3;
+
+        virtualinvoke $dvt_PrintStream_0.<java.io.PrintStream: void println(int)>(l1);
 
         $stack4 = l1 % 3;
 
@@ -65,17 +68,44 @@ public class Test6 extends java.lang.Object
         l2 = $stack8;
 
      label4:
-        specialinvoke $cast_Bus6_17301301167026.<Bus6: void drive()>();
+        $iof_Car6_39620431474176 = l2 instanceof Car6;
 
-        specialinvoke $cast_Bike6_17301303441005.<Bike6: void drive()>();
+        if $iof_Car6_39620431474176 != 0 goto label5;
 
-        specialinvoke $cast_Car6_17301303452545.<Car6: void drive()>();
+        $iof_Bike6_39620431474177 = l2 instanceof Bike6;
 
-        $cast_Car6_17301303452545 = (Car6) l2;
+        if $iof_Bike6_39620431474177 != 0 goto label6;
 
-        goto label5;
+        $iof_Bus6_39620431474178 = l2 instanceof Bus6;
+
+        if $iof_Bus6_39620431474178 != 0 goto label7;
+
+        virtualinvoke l2.<Vehicle6: void drive()>();
+
+        goto label8;
 
      label5:
+        $cast_Car6_39620431474176 = (Car6) l2;
+
+        specialinvoke $cast_Car6_39620431474176.<Car6: void drive()>();
+
+        goto label8;
+
+     label6:
+        $cast_Bike6_39620431474177 = (Bike6) l2;
+
+        specialinvoke $cast_Bike6_39620431474177.<Bike6: void drive()>();
+
+        goto label8;
+
+     label7:
+        $cast_Bus6_39620431474178 = (Bus6) l2;
+
+        specialinvoke $cast_Bus6_39620431474178.<Bus6: void drive()>();
+
+        goto label8;
+
+     label8:
         return;
     }
 }

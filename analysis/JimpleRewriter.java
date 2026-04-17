@@ -314,38 +314,36 @@ public class JimpleRewriter {
      * For !withFallback (BIMORPHIC, targets=[T0, T1]):
      *
      *   entryNop:                         ← all incoming jumps redirected here
-     *   $iof_T0_0 = r instanceof T0;
-     *   if $iof_T0_0 != 0 goto arm0;
+     *   $iof_T0 = r instanceof T0;
+     *   if $iof_T0 != 0 goto arm0;
      *   $cast_T1 = (T1) r;               ← else arm (T1, last target)
      *   specialinvoke $cast_T1.<T1: ret m()>(args);
-     *   goto done;
-     *   arm0: $cast_T0 = (T0) r;         ← jumped-to arm (T0)
+     *   goto afterCall;
+     *   arm0: $cast_T0 = (T0) r;
      *   specialinvoke $cast_T0.<T0: ret m()>(args);
-     *   goto done;
-     *   done: nop;
+     *   goto afterCall;
+     *   [afterCall: whatever was after the original virtual call]
      *
      * For withFallback (POLY, targets=[T0, T1, T2]):
      *
      *   entryNop:
-     *   $iof_T0_0 = r instanceof T0;  if $iof_T0_0 != 0 goto arm0;
-     *   $iof_T1_1 = r instanceof T1;  if $iof_T1_1 != 0 goto arm1;
-     *   $iof_T2_2 = r instanceof T2;  if $iof_T2_2 != 0 goto arm2;
-     *   virtualinvoke r.<Decl: ret m()>(args);  ← virtual fallback
-     *   goto done;
-     *   arm0: ...; goto done;
-     *   arm1: ...; goto done;
-     *   arm2: ...; goto done;
-     *   done: nop;
+     *   $iof_T0 = r instanceof T0;  if $iof_T0 != 0 goto arm0;
+     *   $iof_T1 = r instanceof T1;  if $iof_T1 != 0 goto arm1;
+     *   $iof_T2 = r instanceof T2;  if $iof_T2 != 0 goto arm2;
+     *   virtualinvoke r.<Decl: ret m()>(args);  ← original call as fallback
+     *   goto afterCall;
+     *   arm0: ...; goto afterCall;
+     *   arm1: ...; goto afterCall;
+     *   arm2: ...; goto afterCall;
+     *   [afterCall: ...]
      *
-     * ARM UNIT ORDER (the critical fix):
-     *   - The else arm / fallback comes first (fallthrough from all failed tests).
-     *   - The jumped-to arms come AFTER the fallthrough, reached via if-goto.
-     *   - Within each arm, units are inserted in FORWARD order: cast BEFORE call.
-     *
-     * JUMP REDIRECT (the other critical fix):
-     *   An entryNop is inserted before site.stmt and all incoming jump
-     *   targets on site.stmt are redirected to entryNop.  This ensures
-     *   every incoming jump reaches the type tests, not the fallthrough arm.
+     * WHY insertAfter+cursor instead of insertBefore(goto, doneNop):
+     *   Soot's PatchingChain.insertBefore(X, pivot) redirects ALL existing
+     *   unit-box targets from pivot to X — including X's own unit-boxes.
+     *   So insertBefore(new GotoStmt(doneNop), doneNop) makes the goto
+     *   point to itself (self-loop).  Using insertAfter with a moving cursor
+     *   avoids the pivot entirely; gotos point to afterCall which is fetched
+     *   before any edits and never used as a pivot.
      */
     private void buildTypeTestChain(CallSiteInfo site,
                                      List<SootMethod> targets,
@@ -362,81 +360,101 @@ public class JimpleRewriter {
         if (site.stmt instanceof AssignStmt as && as.getRightOp() instanceof InvokeExpr)
             returnTarget = (Local) as.getLeftOp();
 
-        // ── Entry nop: takes over site.stmt's role as jump target ────────
-        // Inserted before site.stmt; all incoming jumps redirected here.
-        // The type tests follow entryNop, so they are always executed.
+        // Capture convergence point BEFORE any modifications.
+        // Every arm goto jumps here. Never used as an insertBefore pivot.
+        Unit afterCall = units.getSuccOf(site.stmt);
+
+        // insertBefore(entryNop, site.stmt) causes PatchingChain to redirect
+        // all existing jump targets from site.stmt → entryNop automatically.
+        // The explicit redirectJumpsTo below is a belt-and-suspenders guard.
         Unit entryNop = Jimple.v().newNopStmt();
         units.insertBefore(entryNop, site.stmt);
         redirectJumpsTo(site.stmt, entryNop, callerBody);
 
-        // ── Done nop: convergence point for all arms ──────────────────────
-        Unit doneNop = Jimple.v().newNopStmt();
-        units.insertAfter(doneNop, site.stmt);
-
-        // For BIMORPHIC: last target is the fallthrough "else" arm.
-        // For POLY: all targets get type tests; site.stmt is the fallback.
+        // Number of type-tested targets:
+        //   BIMORPHIC: all but the last (last is the else-arm fallthrough)
+        //   POLY: all (site.stmt remains as the virtual fallback)
         int numTests = withFallback ? targets.size() : targets.size() - 1;
 
-        // ── Step 1: Insert the fallthrough / else section ────────────────
-        // This code is reached when all type tests fail (fallthrough path).
-        // It is placed BEFORE the jumped-to arms in the unit chain.
-        if (!withFallback) {
-            SootMethod lastTarget = targets.get(targets.size() - 1);
-            List<Unit> elseArm = buildDirectCallArm(
-                lastTarget, receiver, origArgs, returnTarget, callerBody);
-            // Forward order: cast then call
-            for (Unit u : elseArm)
-                units.insertBefore(u, doneNop);
-            // goto done so fallthrough does not enter the jumped-to arms
-            units.insertBefore(Jimple.v().newGotoStmt(doneNop), doneNop);
-        }
-        // For withFallback: site.stmt is the fallback and stays where it is
-        // (between the type tests and the jumped-to arms).
-
-        // ── Step 2: Insert jumped-to arms (one per type test) ────────────
-        // Placed AFTER the fallthrough/else section, before doneNop.
-        // Forward order so arm0 appears first.
-        List<Unit> armFirstUnits = new ArrayList<>();
+        // Pre-create cast + call units for each type-tested target.
+        // Doing this before insertion lets ifStmts reference them as branch
+        // targets before they appear in the unit chain.
+        long baseId = System.nanoTime();
+        List<Unit> armCastUnits = new ArrayList<>();
+        List<Unit> armCallUnits = new ArrayList<>();
         for (int i = 0; i < numTests; i++) {
-            SootMethod target = targets.get(i);
-            List<Unit> arm = buildDirectCallArm(
-                target, receiver, origArgs, returnTarget, callerBody);
-            armFirstUnits.add(arm.get(0));   // record first unit BEFORE insertion
-            for (Unit u : arm)
-                units.insertBefore(u, doneNop);
-            units.insertBefore(Jimple.v().newGotoStmt(doneNop), doneNop);
+            SootMethod target   = targets.get(i);
+            SootClass  cls      = target.getDeclaringClass();
+            RefType    castType = RefType.v(cls);
+
+            Local castLocal = Jimple.v().newLocal(
+                "$cast_" + cls.getShortName() + "_" + (baseId + i), castType);
+            callerBody.getLocals().add(castLocal);
+
+            armCastUnits.add(Jimple.v().newAssignStmt(
+                castLocal, Jimple.v().newCastExpr(receiver, castType)));
+
+            SpecialInvokeExpr call = Jimple.v().newSpecialInvokeExpr(
+                castLocal, target.makeRef(), origArgs);
+            armCallUnits.add(returnTarget != null
+                ? Jimple.v().newAssignStmt(returnTarget, call)
+                : Jimple.v().newInvokeStmt(call));
         }
 
-        // ── Step 3: Insert type tests between entryNop and site.stmt ─────
-        // Insert in REVERSE order so targets[0]'s test is first in code.
-        for (int i = numTests - 1; i >= 0; i--) {
+        // Step 1: Insert type tests via insertAfter+cursor.
+        // insertAfter does NOT redirect any jump targets, so no self-loop risk.
+        // Chain after each pair: entryNop → ... → iofI → ifI → site.stmt → afterCall
+        Unit cursor = entryNop;
+        for (int i = 0; i < numTests; i++) {
             SootMethod target   = targets.get(i);
             SootClass  tgtClass = target.getDeclaringClass();
             RefType    castType = RefType.v(tgtClass);
 
             Local iofLocal = Jimple.v().newLocal(
-                "$iof_" + tgtClass.getShortName() + "_" + i, BooleanType.v());
+                "$iof_" + tgtClass.getShortName() + "_" + (baseId + i), BooleanType.v());
             callerBody.getLocals().add(iofLocal);
 
             AssignStmt iofStmt = Jimple.v().newAssignStmt(
                 iofLocal, Jimple.v().newInstanceOfExpr(receiver, castType));
             IfStmt ifStmt = Jimple.v().newIfStmt(
-                Jimple.v().newNeExpr(iofLocal, IntConstant.v(0)), armFirstUnits.get(i));
+                Jimple.v().newNeExpr(iofLocal, IntConstant.v(0)), armCastUnits.get(i));
 
-            // Insert between entryNop and site.stmt (using site.stmt as anchor)
-            units.insertBefore(iofStmt, site.stmt);
-            units.insertBefore(ifStmt,  site.stmt);
+            units.insertAfter(iofStmt, cursor);  cursor = iofStmt;
+            units.insertAfter(ifStmt,  cursor);  cursor = ifStmt;
         }
 
-        // ── Step 4: Clean up original call ───────────────────────────────
+        // Step 2: Position cursor at end of the "fallthrough" section.
         if (!withFallback) {
-            // All incoming jumps were redirected to entryNop; safe to remove
-            units.remove(site.stmt);
+            // BIMORPHIC: else arm is last target — insert it after last test.
+            SootMethod lastTarget = targets.get(targets.size() - 1);
+            List<Unit> elseArm = buildDirectCallArm(
+                lastTarget, receiver, origArgs, returnTarget, callerBody);
+            for (Unit u : elseArm) {
+                units.insertAfter(u, cursor);
+                cursor = u;
+            }
+            GotoStmt elseGoto = Jimple.v().newGotoStmt(afterCall);
+            units.insertAfter(elseGoto, cursor);
+            cursor = elseGoto;
         } else {
-            // site.stmt serves as the virtual fallback.
-            // Insert goto done AFTER site.stmt so control doesn't fall through
-            // into the jumped-to arms.
-            units.insertAfter(Jimple.v().newGotoStmt(doneNop), site.stmt);
+            // POLY: site.stmt is the virtual fallback; add goto afterCall after it.
+            GotoStmt fallbackGoto = Jimple.v().newGotoStmt(afterCall);
+            units.insertAfter(fallbackGoto, site.stmt);
+            cursor = fallbackGoto;
+        }
+
+        // Step 3: Insert jumped-to arms after cursor.
+        // Arm gotos point to afterCall (captured before edits) — never a pivot.
+        for (int i = 0; i < numTests; i++) {
+            units.insertAfter(armCastUnits.get(i), cursor); cursor = armCastUnits.get(i);
+            units.insertAfter(armCallUnits.get(i), cursor); cursor = armCallUnits.get(i);
+            GotoStmt armGoto = Jimple.v().newGotoStmt(afterCall);
+            units.insertAfter(armGoto, cursor);             cursor = armGoto;
+        }
+
+        // Step 4: Remove original call (BIMORPHIC) or leave as fallback (POLY).
+        if (!withFallback) {
+            units.remove(site.stmt);
         }
     }
 

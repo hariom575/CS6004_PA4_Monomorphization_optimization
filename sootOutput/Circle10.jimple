@@ -1,0 +1,38 @@
+class Circle10 extends Shape10
+{
+    double r;
+
+    void <init>(double)
+    {
+        Circle10 l0;
+        double l1;
+
+        l0 := @this: Circle10;
+
+        l1 := @parameter0: double;
+
+        specialinvoke l0.<Shape10: void <init>()>();
+
+        l0.<Circle10: double r> = l1;
+
+        return;
+    }
+
+    public double area()
+    {
+        Circle10 l0;
+        double $stack1, $stack2, $stack3, $stack4;
+
+        l0 := @this: Circle10;
+
+        $stack1 = l0.<Circle10: double r>;
+
+        $stack3 = 3.14 * $stack1;
+
+        $stack2 = l0.<Circle10: double r>;
+
+        $stack4 = $stack3 * $stack2;
+
+        return $stack4;
+    }
+}
