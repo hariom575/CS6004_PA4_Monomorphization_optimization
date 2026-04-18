@@ -1,7 +1,7 @@
 // Test5: BIMORPHIC — two allocation sites, guarded dispatch rewrite.
 //
 // Runtime branch produces either Dog5 or Cat5 for variable a.
-// CHA and PTA both give 2 targets → BIMORPHIC.
+// CHA,VTA,PTA and KObj (No improvement in precision as context sensitivity doesnt matter here) give 2 targets → BIMORPHIC.
 // Rewriter produces: instanceof Dog5 check + two direct specialinvoke calls.
 // This removes the vtable lookup and replaces with predictable branch.
 //
@@ -35,7 +35,7 @@ public class Test5 {
 
         String result = null;
         for (int i = 0; i < 100000; i++) {
-            result = a.speak();   // CHA→{Dog5,Cat5}, PTA→{Dog5,Cat5} → BIMORPHIC
+            result = a.speak();   // CHA/VTA→{Dog5,Cat5}, PTA→{Dog5,Cat5},KObj→ {Dog5,Cat5}→ BIMORPHIC
         }
         System.out.println(result);  // Meow
     }

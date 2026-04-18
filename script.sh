@@ -59,7 +59,7 @@ TOTAL_OPT=0
 declare -a TC_NAMES TC_SITES TC_MONO TC_BI TC_POLY TC_MEGA
 declare -a TC_INL TC_DVT TC_GRD TC_TTEST TC_BEFORE TC_AFTER
 
-for i in $(seq 1 12); do
+for i in $(seq 1 15); do
     TC="Test$i"
     ORIG="$TMP/$TC/orig"
     OPT="$TMP/$TC/opt"
@@ -173,7 +173,7 @@ printf "%-8s  %5s  %5s  %4s  %4s  %4s  %4s  %4s  %4s  %5s  %9s  %9s  %6s\n" \
 printf "%-8s  %5s  %5s  %4s  %4s  %4s  %4s  %4s  %4s  %5s  %9s  %9s  %6s\n" \
     "--------" "-----" "-----" "----" "----" "----" "----" "----" "----" "-----" "---------" "---------" "------"
 
-for i in $(seq 1 12); do
+for i in $(seq 1 15); do
     b="${TC_BEFORE[$i]}"
     a="${TC_AFTER[$i]}"
     pct=$(awk -v bb="$b" -v aa="$a" 'BEGIN{

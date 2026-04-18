@@ -2,7 +2,7 @@
 //
 // Vehicle6 has 3 concrete subtypes: Car6, Bus6, Bike6.
 // CHA gives 3 edges. PTA sees switch on args.length so all 3 branches reachable.
-// pts(v) = {Car6, Bus6, Bike6} → 3 targets → POLY.
+// pts(v) = {Car6, Bus6, Bike6} (No strong update possible only weak update in this case) → 3 targets → POLY.
 // Rewriter produces: instanceof Car6 → Car6.drive; instanceof Bus6 → Bus6.drive;
 //                    else → Bike6.drive (last arm via original virtual fallback).
 //

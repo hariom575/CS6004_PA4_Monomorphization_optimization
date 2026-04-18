@@ -25,10 +25,13 @@ public class MonomorphizationTransformer extends SceneTransformer {
     private static final int K = 2;
     private static final int INLINE_THRESHOLD = 30;
 
+    // stored after collection so refineKObj can access call graph edges
+    private CallGraph cg;
+
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
 
-        CallGraph cg = Scene.v().getCallGraph();
+        cg = Scene.v().getCallGraph();
 
         List<CallSiteInfo> sites = collectCallSites(cg);
 
@@ -251,36 +254,233 @@ public class MonomorphizationTransformer extends SceneTransformer {
         if (!(invoke instanceof InstanceInvokeExpr iie)) return null;
         if (!(iie.getBase() instanceof Local receiver))  return null;
 
-        IntraProcPTA.Result callerPTA = getOrRunPTA(site.containingMethod);
-        if (callerPTA == null) return null;
-
-        PointsToState stateAtCall = callerPTA.ptsIn.get(site.stmt);
-        if (stateAtCall == null) return null;
-
-        Set<PointsToState.AllocSite> receiverPts = stateAtCall.getVar(receiver);
-        if (receiverPts.contains(PointsToState.UNKNOWN)) return null;
-        if (receiverPts.isEmpty()) return null;
-
         String subSig = invoke.getMethod().getSubSignature();
-        Set<SootMethod> allTargets = new LinkedHashSet<>();
 
-        for (PointsToState.AllocSite receiverAlloc : receiverPts) {
-            Type recvType = receiverAlloc.getConcreteType();
-            if (recvType == null) return null;
-            if (!(recvType instanceof RefType rt)) continue;
-            SootMethod concrete = resolveDispatch(rt.getSootClass(), subSig);
-            if (concrete == null || !concrete.isConcrete()) return null;
-
-            Set<SootMethod> fieldTargets =
-                walkCalleeForFieldDispatch(concrete, receiverAlloc, stateAtCall, subSig, k, 0);
-            if (fieldTargets == null) return null;
-            fieldTargets.add(concrete);
-            allTargets.addAll(fieldTargets);
+        // First: try standard PTA-based k-obj (receiver known locally)
+        IntraProcPTA.Result localPTA = getOrRunPTA(site.containingMethod);
+        if (localPTA != null) {
+            PointsToState stateAtCall = localPTA.ptsIn.get(site.stmt);
+            if (stateAtCall != null) {
+                Set<PointsToState.AllocSite> receiverPts = stateAtCall.getVar(receiver);
+                if (!receiverPts.contains(PointsToState.UNKNOWN) && !receiverPts.isEmpty()) {
+                    Set<SootMethod> allTargets = new LinkedHashSet<>();
+                    for (PointsToState.AllocSite receiverAlloc : receiverPts) {
+                        Type recvType = receiverAlloc.getConcreteType();
+                        if (recvType == null) return null;
+                        if (!(recvType instanceof RefType rt)) continue;
+                        SootMethod concrete = resolveDispatch(rt.getSootClass(), subSig);
+                        if (concrete == null || !concrete.isConcrete()) return null;
+                        allTargets.add(concrete);
+                    }
+                    if (!allTargets.isEmpty()) {
+                        if (!site.ptaTargets.isEmpty()) allTargets.retainAll(site.ptaTargets);
+                        if (!allTargets.isEmpty()) return allTargets;
+                    }
+                }
+            }
         }
 
-        if (allTargets.isEmpty()) return null;
+        // Second: caller-side k-obj — receiver comes from this.field inside the containing method.
+        // Find the field, then look at all callers of this method via call graph to determine
+        // what concrete types that field holds at each call site.
+        SootField receiverField = findSourceField(site.containingMethod, receiver);
+        if (receiverField == null) return null;
+
+        Set<SootMethod> allTargets = new LinkedHashSet<>();
+        boolean hadCallers = false;
+
+        Iterator<Edge> callerEdges = cg.edgesInto(site.containingMethod);
+        while (callerEdges.hasNext()) {
+            Edge e = callerEdges.next();
+            SootMethod callerMethod = e.src();
+            Unit callUnit = e.srcUnit();
+            if (callUnit == null || !callerMethod.isConcrete()) continue;
+            if (!callerMethod.getDeclaringClass().isApplicationClass()) continue;
+
+            IntraProcPTA.Result callerPTA = getOrRunPTA(callerMethod);
+            if (callerPTA == null) continue;
+
+            PointsToState callerState = callerPTA.ptsIn.get(callUnit);
+            if (callerState == null) continue;
+
+            // Get the 'this' object passed at this call site
+            InvokeExpr callerInvoke = ((Stmt) callUnit).getInvokeExpr();
+            if (!(callerInvoke instanceof InstanceInvokeExpr callerIie)) continue;
+            if (!(callerIie.getBase() instanceof Local callerObj)) continue;
+
+            Set<PointsToState.AllocSite> objPts = callerState.getVar(callerObj);
+
+            if (objPts.isEmpty()) return null;
+
+            if (objPts.contains(PointsToState.UNKNOWN)) {
+                // callerObj is also from a field — k=2: go up one more level.
+                // Find which field of callerMethod's 'this' callerObj comes from.
+                SootField outerField = findSourceField(callerMethod, callerObj);
+                if (outerField == null) return null;
+
+                Iterator<Edge> outerEdges = cg.edgesInto(callerMethod);
+                while (outerEdges.hasNext()) {
+                    Edge e2 = outerEdges.next();
+                    SootMethod outerCaller = e2.src();
+                    Unit outerCallUnit = e2.srcUnit();
+                    if (outerCallUnit == null || !outerCaller.isConcrete()) continue;
+                    if (!outerCaller.getDeclaringClass().isApplicationClass()) continue;
+                    InvokeExpr outerInvoke = ((Stmt) outerCallUnit).getInvokeExpr();
+                    if (!(outerInvoke instanceof InstanceInvokeExpr outerIie)) continue;
+                    if (!(outerIie.getBase() instanceof Local outerObj)) continue;
+
+                    IntraProcPTA.Result outerPTA = getOrRunPTA(outerCaller);
+                    if (outerPTA == null) continue;
+                    PointsToState outerState = outerPTA.ptsIn.get(outerCallUnit);
+                    if (outerState == null) continue;
+
+                    Set<PointsToState.AllocSite> outerPts = outerState.getVar(outerObj);
+                    if (outerPts.isEmpty() || outerPts.contains(PointsToState.UNKNOWN)) return null;
+
+                    for (PointsToState.AllocSite outerAlloc : outerPts) {
+                        // Resolve the intermediate object (callerObj) via constructor in outerCaller
+                        Set<PointsToState.AllocSite> midPts =
+                            resolveFieldViaConstructor(outerCaller, outerPTA, outerAlloc, outerField);
+                        if (midPts == null || midPts.isEmpty() || midPts.contains(PointsToState.UNKNOWN))
+                            return null;
+                        // Now resolve receiverField from each intermediate alloc
+                        for (PointsToState.AllocSite midAlloc : midPts) {
+                            Set<PointsToState.AllocSite> fieldPts =
+                                resolveFieldViaConstructor(outerCaller, outerPTA, midAlloc, receiverField);
+                            if (fieldPts == null || fieldPts.isEmpty() || fieldPts.contains(PointsToState.UNKNOWN))
+                                return null;
+                            for (PointsToState.AllocSite fieldAlloc : fieldPts) {
+                                Type t = fieldAlloc.getConcreteType();
+                                if (!(t instanceof RefType rt)) return null;
+                                SootMethod target = resolveDispatch(rt.getSootClass(), subSig);
+                                if (target == null || !target.isConcrete()) return null;
+                                allTargets.add(target);
+                            }
+                        }
+                    }
+                    hadCallers = true;
+                }
+                continue;
+            }
+
+            for (PointsToState.AllocSite objAlloc : objPts) {
+                // First try direct field state; if contaminated by loop, use constructor analysis.
+                Set<PointsToState.AllocSite> fieldPts = callerState.getField(objAlloc, receiverField);
+                if (fieldPts.isEmpty() || fieldPts.contains(PointsToState.UNKNOWN)) {
+                    fieldPts = resolveFieldViaConstructor(callerMethod, callerPTA, objAlloc, receiverField);
+                }
+                if (fieldPts == null || fieldPts.isEmpty() || fieldPts.contains(PointsToState.UNKNOWN))
+                    return null;
+
+                for (PointsToState.AllocSite fieldAlloc : fieldPts) {
+                    Type t = fieldAlloc.getConcreteType();
+                    if (!(t instanceof RefType rt)) return null;
+                    SootMethod target = resolveDispatch(rt.getSootClass(), subSig);
+                    if (target == null || !target.isConcrete()) return null;
+                    allTargets.add(target);
+                }
+            }
+            hadCallers = true;
+        }
+
+        if (!hadCallers || allTargets.isEmpty()) return null;
         if (!site.ptaTargets.isEmpty()) allTargets.retainAll(site.ptaTargets);
         return allTargets.isEmpty() ? null : allTargets;
+    }
+
+    /**
+     * Resolve a field's allocation type by tracing back to the constructor call.
+     * Used when the field state in the PTA fixed-point is UNKNOWN (loop contamination).
+     * Finds the `new T` unit from objAlloc, then the `specialinvoke <init>` that follows,
+     * then reads the PTA state AT that init call (before the loop) to get the arg's type.
+     */
+    private Set<PointsToState.AllocSite> resolveFieldViaConstructor(
+            SootMethod callerMethod, IntraProcPTA.Result callerPTA,
+            PointsToState.AllocSite objAlloc, SootField field) {
+        if (objAlloc.unit == null || !(objAlloc.unit instanceof AssignStmt newStmt)) return null;
+        if (!(newStmt.getLeftOp() instanceof Local allocLocal)) return null;
+        if (!callerMethod.hasActiveBody()) return null;
+        Body callerBody = callerMethod.getActiveBody();
+
+        // Walk forward from the alloc unit to find the <init> call on allocLocal
+        boolean seenAlloc = false;
+        for (Unit u : callerBody.getUnits()) {
+            if (u == objAlloc.unit) { seenAlloc = true; continue; }
+            if (!seenAlloc) continue;
+            if (!(u instanceof InvokeStmt is)) continue;
+            if (!(is.getInvokeExpr() instanceof SpecialInvokeExpr sie)) continue;
+            if (!sie.getMethod().getName().equals("<init>")) continue;
+            if (!sie.getBase().equals(allocLocal)) continue;
+
+            // Found the init call — find which param maps to our field
+            SootMethod initMethod = sie.getMethod();
+            if (!initMethod.isConcrete() || !initMethod.hasActiveBody()) return null;
+            int paramIdx = findFieldParamIndex(initMethod, field);
+            if (paramIdx < 0 || paramIdx >= sie.getArgCount()) return null;
+
+            // Read PTA state at the init call (before the loop — clean state)
+            PointsToState stateAtInit = callerPTA.ptsIn.get(u);
+            if (stateAtInit == null) return null;
+            Value arg = sie.getArg(paramIdx);
+            if (!(arg instanceof Local argLocal)) return null;
+            return stateAtInit.getVar(argLocal);
+        }
+        return null;
+    }
+
+    /** Walk a constructor body to find: this.field = @paramN → return param index N. */
+    private int findFieldParamIndex(SootMethod initMethod, SootField field) {
+        Body body = initMethod.getActiveBody();
+        Local thisLocal = findThisLocal(body);
+        if (thisLocal == null) return -1;
+        Map<Local, Integer> localParamIdx = new HashMap<>();
+        for (Unit u : body.getUnits()) {
+            if (u instanceof IdentityStmt ids && ids.getRightOp() instanceof ParameterRef pr
+                    && ids.getLeftOp() instanceof Local l)
+                localParamIdx.put(l, pr.getIndex());
+        }
+        for (Unit u : body.getUnits()) {
+            if (!(u instanceof AssignStmt as)) continue;
+            Value lhs = as.getLeftOp();
+            Value rhs = as.getRightOp();
+            if (lhs instanceof InstanceFieldRef ifr && ifr.getBase().equals(thisLocal)
+                    && ifr.getField().equals(field) && rhs instanceof Local src) {
+                Integer idx = localParamIdx.get(src);
+                if (idx != null) return idx;
+            } else if (lhs instanceof Local dst && rhs instanceof Local src
+                    && localParamIdx.containsKey(src)) {
+                localParamIdx.put(dst, localParamIdx.get(src));
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Find the SootField that 'local' was read from in the given method body.
+     * Looks for: local = this.field (direct InstanceFieldRef on @this).
+     * Returns null if the local does not come from a this-field read.
+     */
+    private SootField findSourceField(SootMethod method, Local local) {
+        if (!method.hasActiveBody()) return null;
+        Body body = method.getActiveBody();
+        Local thisLocal = findThisLocal(body);
+        if (thisLocal == null) return null;
+
+        // Build copy chains: if $x = $y and $y = this.f, then $x also comes from this.f
+        Map<Local, SootField> sourceField = new HashMap<>();
+        for (Unit u : body.getUnits()) {
+            if (u instanceof AssignStmt as) {
+                Value lhs = as.getLeftOp();
+                Value rhs = as.getRightOp();
+                if (!(lhs instanceof Local dest)) continue;
+                if (rhs instanceof InstanceFieldRef ifr && ifr.getBase().equals(thisLocal)) {
+                    sourceField.put(dest, ifr.getField());
+                } else if (rhs instanceof Local src && sourceField.containsKey(src)) {
+                    sourceField.put(dest, sourceField.get(src));
+                }
+            }
+        }
+        return sourceField.get(local);
     }
 
     /**

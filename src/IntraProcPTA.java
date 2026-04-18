@@ -215,6 +215,21 @@ final class IntraProcPTA {
     // all objects reachable through their fields).
 
     private void processInvoke(PointsToState state, InvokeExpr ie) {
+        // For application-class constructors, model field assignments instead of wiping.
+        // This lets k-obj see box.worker = {HardWorker7} after new Container7(w).
+        if (ie instanceof SpecialInvokeExpr sie
+                && ie.getMethod().getName().equals("<init>")
+                && ie.getMethod().isConcrete()
+                && ie.getMethod().hasActiveBody()
+                && ie.getMethod().getDeclaringClass().isApplicationClass()
+                && sie.getBase() instanceof Local base) {
+            Set<PointsToState.AllocSite> recvPts = state.getVar(base);
+            if (!recvPts.isEmpty() && !recvPts.contains(PointsToState.UNKNOWN)) {
+                modelConstructorFields(state, ie.getMethod(), recvPts, ie.getArgs());
+                return;
+            }
+        }
+
         Queue<PointsToState.AllocSite> queue = new ArrayDeque<>();
 
         if (ie instanceof InstanceInvokeExpr iie && iie.getBase() instanceof Local base)
@@ -232,6 +247,54 @@ final class IntraProcPTA {
                 for (var t : state.getField(site, f))
                     if (!t.equals(PointsToState.UNKNOWN) && !done.contains(t)) queue.add(t);
             state.removeAllFields(site);
+        }
+    }
+
+    /**
+     * Walk a constructor body linearly and propagate field assignments of the form
+     *   this.field = x   (where x traces back to a @parameterN or a copy thereof)
+     * into the caller's state for each allocation site in recvPts.
+     */
+    private void modelConstructorFields(PointsToState state, SootMethod init,
+                                        Set<PointsToState.AllocSite> recvPts,
+                                        List<Value> callerArgs) {
+        Body body = init.getActiveBody();
+        Local thisId = null;
+        Map<Local, Integer> paramIndex = new HashMap<>();
+
+        for (Unit u : body.getUnits()) {
+            if (u instanceof IdentityStmt ids) {
+                if (ids.getRightOp() instanceof ThisRef && ids.getLeftOp() instanceof Local l)
+                    thisId = l;
+                else if (ids.getRightOp() instanceof ParameterRef pr && ids.getLeftOp() instanceof Local l)
+                    paramIndex.put(l, pr.getIndex());
+            }
+        }
+        if (thisId == null) return;
+
+        // Map constructor locals to caller pts sets (follows simple copy chains)
+        Map<Local, Set<PointsToState.AllocSite>> localMap = new HashMap<>();
+        for (Map.Entry<Local, Integer> e : paramIndex.entrySet()) {
+            int idx = e.getValue();
+            if (idx < callerArgs.size() && callerArgs.get(idx) instanceof Local argLocal)
+                localMap.put(e.getKey(), state.getVar(argLocal));
+        }
+
+        for (Unit u : body.getUnits()) {
+            if (!(u instanceof AssignStmt as)) continue;
+            Value lhs = as.getLeftOp();
+            Value rhs = as.getRightOp();
+            if (lhs instanceof InstanceFieldRef ifr && ifr.getBase().equals(thisId)
+                    && rhs instanceof Local src) {
+                Set<PointsToState.AllocSite> srcPts = localMap.get(src);
+                if (srcPts != null && !srcPts.isEmpty()) {
+                    for (PointsToState.AllocSite recvAlloc : recvPts)
+                        state.setField(recvAlloc, ifr.getField(), srcPts);
+                }
+            } else if (lhs instanceof Local dest && rhs instanceof Local src
+                    && localMap.containsKey(src)) {
+                localMap.put(dest, localMap.get(src));
+            }
         }
     }
 

@@ -30,10 +30,10 @@ public class Test2 {
     public static void main(String[] args) {
         A2 a = new A2();
         C2 c = new D2();   // only D2 allocated; C2 branch is dead
-        // C2 c2 = new C2(); -- if uncommented, PTA gives {C2.foo, D2.foo}
+        C2 c2 = new C2();// -- if uncommented, VTA gives {C2.foo, D2.foo}
         long sum = 0;
         for (int i = 0; i < 100000; i++) {
-            sum += c.foo(a);   // CHA→{C2.foo,D2.foo}, PTA→{D2.foo} → MONO
+            sum += c.foo(a);   // VTA→{C2.foo,D2.foo}, PTA→{D2.foo} → MONO
         }
         System.out.println(sum / 100000);  // 100
     }

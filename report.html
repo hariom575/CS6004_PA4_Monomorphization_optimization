@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>CS6004 PA4 - Monomorphization Optimization</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">CS6004 PA4 - Monomorphization Optimization</h1>
+</header>
+<h1 id="cs6004-pa4---monomorphization-optimization">CS6004 PA4 -
+Monomorphization Optimization</h1>
+<p><strong>Team:</strong> The Heap Farmer</p>
+<p><strong>Members:</strong></p>
+<ul>
+<li>Hariom Mewada (Roll: 24m2137)</li>
+<li>Pushpendra Uikey (Roll: 23b1023)</li>
+</ul>
+<hr />
+<h2 id="what-we-did">1. What We Did</h2>
+<p>We built a monomorphization pass that works on Java bytecode using
+Soot’s Jimple IR. The goal is simple: look at each virtual method call
+and figure out how many real methods can actually be called there at
+runtime. If the number is small enough, replace the virtual dispatch
+with cheaper code.</p>
+<p>A virtual call goes through a vtable lookup at runtime. If we know
+statically that only one method can ever be called, we can skip the
+lookup entirely (devirtualize or inline). If two methods are possible, a
+simple if-else is faster than a vtable. For three or four, a chain of
+type checks. For five or more, we leave it alone – not worth the code
+bloat.</p>
+<p>We stack three analysis layers on top of Soot’s built-in call
+graph:</p>
+<ol type="1">
+<li><p><strong>CHA/VTA</strong> – Soot builds the call graph using Class
+Hierarchy Analysis and then applies Variable Type Analysis. VTA looks at
+the right-hand side of assignments to remove types that are never
+actually put into a variable. So if only Dog is ever assigned to an
+Animal variable, VTA removes Cat from the call graph edge. This is our
+starting upper bound.</p></li>
+<li><p><strong>Intra-proc PTA</strong> – our own forward dataflow
+analysis. It tracks, for each local variable at each program point,
+which allocation sites (which <code>new</code> expressions) can reach
+it. This is flow-sensitive: it sees each <code>new</code> statement in
+order. If the receiver at a call site has only one known allocation
+site, we can narrow to one target.</p></li>
+<li><p><strong>k-Object Sensitivity (k=2)</strong> – handles the
+container pattern. When the receiver comes from a field (like
+<code>this.worker</code> inside <code>Container7.run()</code>), PTA
+cannot narrow it because <code>this</code> is unknown inside the method.
+We look at the callers of the method and use the constructor call
+analysis to find what was put in that field when the object was built.
+This works up to k=2 levels deep (outer.inner.field).</p></li>
+</ol>
+<hr />
+<h2 id="analysis-details">2. Analysis Details</h2>
+<h3 id="layer-1-cha-vta-soots-call-graph">Layer 1: CHA + VTA (Soot’s
+call graph)</h3>
+<p>Soot builds the call graph with <code>-p cg.cha enabled:true</code>.
+CHA on its own would add an edge for every concrete subtype of the
+declared receiver type. VTA then removes edges for types that are never
+actually assigned to the receiver variable anywhere in the program.</p>
+<p>For example: if Animal has subtypes Cat and Dog, but only Cat is ever
+assigned to variable <code>a</code>, VTA removes the Dog edge. The call
+graph we read via <code>cg.edgesOutOf(stmt)</code> already has VTA
+applied.</p>
+<p>Soot’s VTA is also per-call-site: for each virtual call statement it
+uses the type information at that point, not just across the whole
+method. This means Soot’s VTA is already quite precise and handles many
+simple cases.</p>
+<h3 id="layer-2-intra-proc-pta">Layer 2: Intra-proc PTA</h3>
+<p>We run a worklist-based forward dataflow on the method body. At each
+program point we track:</p>
+<ul>
+<li><code>local -&gt; set of AllocSite</code> : which <code>new</code>
+statements can reach this variable</li>
+<li><code>(AllocSite, field) -&gt; set of AllocSite</code> : what is
+stored in each field of each object</li>
+</ul>
+<p>Transfer rules: - <code>x = new T()</code> : pts(x) = { fresh
+AllocSite(T) } - <code>x = y</code> : pts(x) = pts(y) -
+<code>x = y.f</code> : pts(x) = union of field contents of all y’s alloc
+sites; UNKNOWN if any field unknown - <code>y.f = x</code> : strong
+update if pts(y) has exactly one known site, else weak update -
+Constructor call
+<code>specialinvoke new_obj.&lt;T: void &lt;init&gt;(args)&gt;(a1,a2...)</code>
+: we walk the constructor body and for each
+<code>this.field = @paramN</code> assignment, set field state to
+pts(argN). This lets us track what was stored in fields during
+construction. - Other method call: conservatively wipe all field info
+for reachable objects (escape analysis)</p>
+<p>When the receiver at a virtual call has no UNKNOWN sites, we resolve
+dispatch for each site and intersect with Soot’s CHA edges (soundness
+guarantee: we never add edges, only remove).</p>
+<p>In practice, Soot’s VTA already handles most simple local-variable
+patterns. Our PTA’s main contribution is computing the field state
+(AllocSite, field) -&gt; pts which the k-obj layer uses.</p>
+<h3 id="layer-3-k-object-sensitivity-k2">Layer 3: k-Object Sensitivity
+(k=2)</h3>
+<p>This handles the pattern where PTA cannot narrow a call because the
+receiver came through <code>this.field</code> inside a method (so
+<code>this</code> is UNKNOWN).</p>
+<p>The approach for k=1 (Test7): 1. Find that receiver
+<code>worker</code> = <code>this.worker</code> in
+<code>Container7.run()</code> 2. Look at all callers of
+<code>Container7.run()</code> via the call graph 3. For each caller
+(e.g., <code>Test7.main</code> calling <code>box.run()</code>): - Find
+the allocation site of <code>box</code> in the caller - Find the
+constructor call for that allocation (<code>new Container7(w)</code>) -
+Read the PTA state at the constructor call – at that point
+<code>w</code> is still <code>{AllocSite&lt;HardWorker7&gt;}</code>
+(before loop back-edges contaminate it) - Map constructor parameter to
+field: <code>Container7(Worker7 w)</code> -&gt;
+<code>this.worker = w</code> -&gt; param index 0 - So
+<code>box.worker = pts(w at init call) = {HardWorker7}</code> -&gt;
+MONO</p>
+<p>For k=2 (Test8, two-level chain <code>outer.inner.proc</code>): 1.
+BIMORPHIC site: <code>proc.process()</code> in
+<code>Inner8.run()</code>, from <code>this.proc</code> 2. Callers of
+<code>Inner8.run()</code> is <code>Outer8.execute()</code>, but there
+<code>inner</code> = <code>this.inner</code> = UNKNOWN 3. Go up one more
+level: callers of <code>Outer8.execute()</code> is
+<code>Test8.main</code> 4. In <code>Test8.main</code>, find
+<code>outer</code> alloc site, then: -
+<code>resolveFieldViaConstructor(outer, Outer8.inner)</code> -&gt;
+<code>{AllocSite&lt;Inner8&gt;}</code> -
+<code>resolveFieldViaConstructor(inner_alloc, Inner8.proc)</code> -&gt;
+<code>{AllocSite&lt;FastProc8&gt;}</code> 5. -&gt; MONO
+(FastProc8.process)</p>
+<p>For Test9 (two containers with different field types): k-obj
+correctly stays BIMORPHIC because one caller provides RedEngine and
+another provides BlueEngine – the union is two types, which is
+correct.</p>
+<hr />
+<h2 id="transformation-details">3. Transformation Details</h2>
+<h3 id="mono---inline">MONO -&gt; Inline</h3>
+<p>When the callee body is 30 Jimple statements or fewer, we paste its
+body directly at the call site.</p>
+<p>Before:</p>
+<pre><code>$b = new Only;
+$result = virtualinvoke $b.&lt;Base1: int compute()&gt;();</code></pre>
+<p>After (inlined):</p>
+<pre><code>$b = new Only;
+$r0_inl0 = $b;
+$result = 42;
+goto postReturn;
+postReturn: nop;</code></pre>
+<h3 id="mono---devirtualise">MONO -&gt; Devirtualise</h3>
+<p>When the callee is too large to inline, we narrow the type of the
+receiver with a cast and call virtualinvoke on the concrete class. The
+JVM can devirtualize this at runtime.</p>
+<p>Before:</p>
+<pre><code>virtualinvoke $c.&lt;C: void foo(A)&gt;($a)</code></pre>
+<p>After:</p>
+<pre><code>$dvt_D = (D) $c;
+virtualinvoke $dvt_D.&lt;D: void foo(A)&gt;($a)</code></pre>
+<p>We use virtualinvoke (not invokespecial) because invokespecial is
+only legal for private methods, constructors, and super calls. A public
+method called from an unrelated class must use virtualinvoke even on a
+narrowly typed receiver.</p>
+<h3 id="bimorphic---guarded-dispatch">BIMORPHIC -&gt; Guarded
+Dispatch</h3>
+<p>We create a static bridge method in the target class that takes
+<code>this</code> as an explicit first parameter, then use invokestatic.
+This removes vtable overhead entirely and passes JVM bytecode
+verification.</p>
+<p>Before:</p>
+<pre><code>virtualinvoke $a.&lt;Animal5: String speak()&gt;()</code></pre>
+<p>After (in Test5.main):</p>
+<pre><code>$iof_Dog5 = $a instanceof Dog5;
+if $iof_Dog5 != 0 goto arm0;
+$cast_Cat5 = (Cat5) $a;
+staticinvoke &lt;Cat5: String speak$mono$Cat5(Cat5)&gt;($cast_Cat5);
+goto done;
+arm0: $cast_Dog5 = (Dog5) $a;
+staticinvoke &lt;Dog5: String speak$mono$Dog5(Dog5)&gt;($cast_Dog5);
+goto done;
+done: nop;</code></pre>
+<p>The static bridge <code>speak$mono$Cat5(Cat5 self)</code> is
+generated by copying Cat5.speak’s body and replacing <code>@this</code>
+with <code>@parameter0</code>.</p>
+<h3 id="poly---type-test-chain">POLY -&gt; Type-Test Chain</h3>
+<p>Same idea as BIMORPHIC but with 3-4 type checks and a final fallback
+virtual call for the last arm.</p>
+<h3 id="key-bug-fixed-soot-patchingchain-self-loop">Key Bug Fixed: Soot
+PatchingChain Self-loop</h3>
+<p><code>PatchingChain.insertBefore(X, pivot)</code> redirects all jump
+targets from pivot to X. But if X is a GotoStmt pointing to pivot, it
+also redirects X’s own target – creating a self-loop.</p>
+<p>Fix: capture <code>afterCall = units.getSuccOf(site.stmt)</code>
+before edits. Insert an <code>entryNop</code> before
+<code>site.stmt</code> as the jump landing. Use <code>insertAfter</code>
+for all subsequent units. Arm gotos point to <code>afterCall</code>
+(never used as insertBefore pivot).</p>
+<hr />
+<h2 id="results">4. Results</h2>
+<h3 id="what-each-analysis-contributes">What Each Analysis
+Contributes</h3>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 37%" />
+<col style="width: 42%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Layer</th>
+<th>What it does</th>
+<th>When it helps</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CHA</td>
+<td>Adds edge for every concrete subtype</td>
+<td>Starting point – always gives an upper bound</td>
+</tr>
+<tr class="even">
+<td>VTA (Soot)</td>
+<td>Removes types not assigned to the receiver variable</td>
+<td>Removes dead-type edges (Tests 1-6, 10-12)</td>
+</tr>
+<tr class="odd">
+<td>Our PTA</td>
+<td>Flow-sensitive allocation tracking; computes field state</td>
+<td>Provides field pts map needed by k-obj</td>
+</tr>
+<tr class="even">
+<td>k-obj (k=2)</td>
+<td>Looks at caller’s constructor to find field types</td>
+<td>Narrows container-pattern BIMORPHIC to MONO (Tests 7, 8)</td>
+</tr>
+</tbody>
+</table>
+<p>Note: Soot’s VTA is already per-call-site and handles most
+local-variable narrowing. Our PTA confirms this independently and
+computes the field state that k-obj relies on. k-obj provides the
+additional narrowing for cases where the receiver came through a field
+chain.</p>
+<h3 id="functional-correctness">Functional Correctness</h3>
+<p>All 15 testcases produce the same output before and after
+optimization.</p>
+<table>
+<colgroup>
+<col style="width: 6%" />
+<col style="width: 37%" />
+<col style="width: 19%" />
+<col style="width: 12%" />
+<col style="width: 24%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Test</th>
+<th>Scenario</th>
+<th>CHA/VTA result</th>
+<th>k-obj gain</th>
+<th>Transformation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Test1</td>
+<td>Single subtype only</td>
+<td>MONO x2</td>
+<td>none</td>
+<td>Inline + Devirt</td>
+</tr>
+<tr class="even">
+<td>Test2</td>
+<td>Dead subtype (VTA removes unused type)</td>
+<td>MONO x2</td>
+<td>none</td>
+<td>Inline + Devirt</td>
+</tr>
+<tr class="odd">
+<td>Test3</td>
+<td>Single interface implementation</td>
+<td>MONO x2</td>
+<td>none</td>
+<td>Inline + Devirt</td>
+</tr>
+<tr class="even">
+<td>Test4</td>
+<td>Two distinct allocation sites, both MONO</td>
+<td>MONO x3</td>
+<td>none</td>
+<td>2x Inline + Devirt</td>
+</tr>
+<tr class="odd">
+<td>Test5</td>
+<td>Two types via runtime branch</td>
+<td>MONO x1 + BIMORPHIC</td>
+<td>none</td>
+<td>Guarded dispatch + Devirt</td>
+</tr>
+<tr class="even">
+<td>Test6</td>
+<td>Three types via switch</td>
+<td>MONO x1 + POLY</td>
+<td>none</td>
+<td>Type-test chain + Devirt</td>
+</tr>
+<tr class="odd">
+<td>Test7</td>
+<td>Container – this.field receiver (k=1)</td>
+<td>MONO x2 + BIMORPHIC</td>
+<td>BI -&gt; MONO</td>
+<td>2x Inline + Devirt</td>
+</tr>
+<tr class="even">
+<td>Test8</td>
+<td>Two-level chain outer.inner.proc (k=2)</td>
+<td>MONO x5 + BIMORPHIC</td>
+<td>BI -&gt; MONO</td>
+<td>5x Inline + Devirt</td>
+</tr>
+<tr class="odd">
+<td>Test9</td>
+<td>Two containers with different field types</td>
+<td>MONO x3 + BIMORPHIC</td>
+<td>BI stays BI</td>
+<td>2x Inline + Guarded + Devirt</td>
+</tr>
+<tr class="even">
+<td>Test10</td>
+<td>Five subtypes – MEGA, no optimization</td>
+<td>MONO x1 + MEGA</td>
+<td>none</td>
+<td>Devirt (println) + skipped</td>
+</tr>
+<tr class="odd">
+<td>Test11</td>
+<td>Cat then Dog reassigned in loop</td>
+<td>MONO x3</td>
+<td>none</td>
+<td>2x Inline + Devirt</td>
+</tr>
+<tr class="even">
+<td>Test12</td>
+<td>Threshold boundary: small vs large callee</td>
+<td>MONO x3</td>
+<td>none</td>
+<td>2x Inline + Devirt</td>
+</tr>
+<tr class="odd">
+<td>Test13</td>
+<td>Six subtypes – MEGA (explicit limit test)</td>
+<td>MONO x1 + MEGA</td>
+<td>none (MEGA)</td>
+<td>Devirt (println) + skipped</td>
+</tr>
+<tr class="even">
+<td>Test14</td>
+<td>Receiver from method return (inter-proc)</td>
+<td>MONO x1 + BIMORPHIC</td>
+<td>none (UNKNOWN)</td>
+<td>Guarded + Devirt</td>
+</tr>
+<tr class="odd">
+<td>Test15</td>
+<td>Objects loaded from array (UNKNOWN)</td>
+<td>MONO x1 + BIMORPHIC</td>
+<td>none (UNKNOWN)</td>
+<td>Guarded + Devirt</td>
+</tr>
+</tbody>
+</table>
+<p>Notes: - Tests 1-6, 10-12: Soot’s VTA already gives the right answer.
+Our PTA confirms and computes field state for k-obj. - Tests 7-8: k-obj
+narrows the one BIMORPHIC site to MONO by resolving the field type from
+the caller’s constructor call. - Test9 correctly stays BIMORPHIC: the
+single call site inside <code>Holder9.start()</code> sees two callers
+with different field types (Red and Blue), so the union is two – the
+right answer. - Test13: six subtypes exceed the MEGA threshold (4); the
+call site is skipped with no transformation. - Test14: the receiver
+<code>t = make(true)</code> is a method return value; intra-proc PTA
+conservatively marks it UNKNOWN and cannot narrow it beyond VTA’s
+BIMORPHIC. k-obj does not help because the receiver is not a stored
+field. - Test15: the receiver <code>a = arr[0]</code> is an array
+element load; our PTA does not track array contents and marks the load
+UNKNOWN. The site stays BIMORPHIC. Full precision would require a
+separate array-element points-to analysis.</p>
+<h3 id="performance">Performance</h3>
+<p>Tests use a loop of 100,000 iterations measured with
+<code>-Xint</code> (interpreter, no JIT). Minimum of 5 runs.</p>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 9%" />
+<col style="width: 56%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Test</th>
+<th>Before (s)</th>
+<th>After (s)</th>
+<th>Change</th>
+<th>What happened</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Test1</td>
+<td>0.022</td>
+<td>0.029</td>
+<td>-32%</td>
+<td>Inline overhead in -Xint</td>
+</tr>
+<tr class="even">
+<td>Test2</td>
+<td>0.026</td>
+<td>0.025</td>
+<td>+4%</td>
+<td>MONO inline</td>
+</tr>
+<tr class="odd">
+<td>Test3</td>
+<td>0.116</td>
+<td>0.113</td>
+<td>+3%</td>
+<td>MONO inline</td>
+</tr>
+<tr class="even">
+<td>Test4</td>
+<td>0.030</td>
+<td>0.029</td>
+<td>+3%</td>
+<td>2x Inline + Devirt</td>
+</tr>
+<tr class="odd">
+<td>Test5</td>
+<td>0.029</td>
+<td>0.029</td>
+<td>0%</td>
+<td>BIMORPHIC guarded (noise range)</td>
+</tr>
+<tr class="even">
+<td>Test6</td>
+<td>0.025</td>
+<td>0.030</td>
+<td>-20%</td>
+<td>Type-test chain overhead in -Xint</td>
+</tr>
+<tr class="odd">
+<td>Test7</td>
+<td>0.026</td>
+<td>0.027</td>
+<td>-4%</td>
+<td>k-obj -&gt; MONO inline (noise range)</td>
+</tr>
+<tr class="even">
+<td>Test8</td>
+<td>0.110</td>
+<td>0.103</td>
+<td>+6%</td>
+<td>k=2 -&gt; MONO, 5x inline</td>
+</tr>
+<tr class="odd">
+<td>Test9</td>
+<td>0.042</td>
+<td>0.040</td>
+<td>+5%</td>
+<td>2x Inline + Guarded dispatch</td>
+</tr>
+<tr class="even">
+<td>Test10</td>
+<td>0.030</td>
+<td>0.025</td>
+<td>+17%</td>
+<td>println devirt (MEGA site skipped)</td>
+</tr>
+<tr class="odd">
+<td>Test11</td>
+<td>0.046</td>
+<td>0.042</td>
+<td>+9%</td>
+<td>2x MONO inline</td>
+</tr>
+<tr class="even">
+<td>Test12</td>
+<td>0.033</td>
+<td>0.030</td>
+<td>+9%</td>
+<td>2x Inline + Devirt</td>
+</tr>
+<tr class="odd">
+<td>Test13</td>
+<td>0.097</td>
+<td>0.113</td>
+<td>-16%</td>
+<td>MEGA skipped – handle() still virtual</td>
+</tr>
+<tr class="even">
+<td>Test14</td>
+<td>0.032</td>
+<td>0.029</td>
+<td>+9%</td>
+<td>Guarded dispatch; no precision gain beyond VTA</td>
+</tr>
+<tr class="odd">
+<td>Test15</td>
+<td>0.029</td>
+<td>0.032</td>
+<td>-10%</td>
+<td>Guarded dispatch; array load stays UNKNOWN</td>
+</tr>
+</tbody>
+</table>
+<p>Overall: 38 out of 40 virtual call sites optimized (95%). The 2
+unoptimized sites are the MEGA calls in Test10 and Test13 – correctly
+skipped.</p>
+<p>With <code>-Xint</code> (no JIT), the interpreter dispatches every
+bytecode manually. Inlining adds bytecodes to the method body, so more
+work per iteration – this is why some tests show a slowdown under -Xint.
+The real benefit of monomorphization comes when the JIT is running: a
+monomorphic call site lets the JIT inline across the call, which
+typically gives 10-50% speedup in production. With -Xint the effect is
+smaller and sometimes in the noise.</p>
+<p>Test8 (+6%) and Tests 11-12 (+9%) show visible improvement even under
+-Xint because the inlined callees eliminate dispatch that even the
+interpreter pays.</p>
+<hr />
+<h2 id="running-the-code">5. Running the Code</h2>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> script.sh</span></code></pre></div>
+<p>This cleans old class files, compiles the analysis code, then for
+each test: 1. Compiles the test class 2. Measures original runtime (5
+runs, minimum) 3. Runs the optimization pass (prints full analysis
+report) 4. Checks that optimized output matches original 5. Measures
+optimized runtime (5 runs, minimum)</p>
+<p>At the end it prints a summary table. Transformed class files are
+written to <code>sootOutput/</code>.</p>
+</body>
+</html>

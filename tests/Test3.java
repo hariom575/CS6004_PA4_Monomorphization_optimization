@@ -23,7 +23,7 @@ public class Test3 {
         Printable3 p = new FastPrinter3();
         String result = null;
         for (int i = 0; i < 100000; i++) {
-            result = p.format("hello");   // interface invoke → CHA gives {FastPrinter3.format} → MONO
+            result = p.format("hello");   // interface invoke → CHA as well as VTA gives {FastPrinter3.format} → MONO
         }
         System.out.println(result);  // [FAST] hello
     }

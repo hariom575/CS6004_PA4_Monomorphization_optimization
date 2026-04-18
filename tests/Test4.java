@@ -1,5 +1,5 @@
 // Test4: MONO — multiple call sites, each resolved independently.
-//
+//// This test case is covered by VTA to mono by just looking at right hand side of the new expression.
 // Two Shape4 variables hold distinct allocation sites (Circle4, Square4).
 // PTA tracks each allocation site separately.
 // Both s.area() and s1.area() are MONO sites (each has only 1 concrete target).
@@ -31,7 +31,7 @@ public class Test4 {
         Shape4 s1 = new Square4(5.0);   // PTA: pts(s1) = {Square4}
         double sum = 0;
         for (int i = 0; i < 100000; i++) {
-            sum += s.area() + s1.area();   // 2 MONO sites → both inlined
+            sum += s.area() + s1.area();   // (VTA resolve to) 2 MONO sites → both inlined 
         }
         System.out.println(sum / 100000);  // ~103.5 (floating point accumulation)
     }
