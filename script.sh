@@ -79,11 +79,24 @@ for i in $(seq 1 12); do
     # Compile the testcase (all classes in one file)
     javac "$TESTS/$TC.java" -d "$ORIG" 2>/dev/null || true
 
-    # Measure wall-clock time of ORIGINAL code (no JIT)
-    T_BEFORE=$(TIMEFORMAT='%R'; { time java -Xint -cp "$ORIG" "$TC" >/dev/null 2>&1; } 2>&1 | tail -1 || echo "N/A")
+    # Helper: run N times with -Xint and return the minimum elapsed time (seconds)
+    # Using minimum removes OS scheduling noise; matches what the spec recommends.
+    min_time() {
+        local cp="$1" cls="$2" n="${3:-5}" best=""
+        for _ in $(seq 1 "$n"); do
+            t=$(TIMEFORMAT='%R'; { time java -Xint -cp "$cp" "$cls" >/dev/null 2>&1; } 2>&1 | tail -1)
+            # keep smallest (awk handles locale-independent float compare)
+            best=$(echo "$best $t" | awk '{
+                for(i=1;i<=NF;i++) if($i~/^[0-9]/ && (min==""||$i+0<min+0)) min=$i
+                print min}')
+        done
+        echo "$best"
+    }
+
+    # Measure wall-clock time of ORIGINAL code — 5 runs, take minimum
+    T_BEFORE=$(min_time "$ORIG" "$TC" 5)
 
     # Run the optimization pass
-    # Main writes transformed .class files to $SRC/sootOutput/
     REPORT=$(java -cp "$SRC:$SOOT" Main "$ORIG" "$TC" 2>&1) || true
 
     # Print the full analysis report for this testcase
@@ -107,10 +120,17 @@ for i in $(seq 1 12); do
         echo "    Optimized: $OPT_OUT"
     fi
 
-    # Measure wall-clock time of OPTIMIZED code (no JIT)
-    T_AFTER=$(TIMEFORMAT='%R'; { time java -Xint -cp "$OPT" "$TC" >/dev/null 2>&1; } 2>&1 | tail -1 || echo "N/A")
+    # Measure wall-clock time of OPTIMIZED code — 5 runs, take minimum
+    T_AFTER=$(min_time "$OPT" "$TC" 5)
 
-    echo "  Time before: ${T_BEFORE}s   Time after: ${T_AFTER}s"
+    # Compute improvement percentage
+    if [[ "$T_BEFORE" =~ ^[0-9] ]] && [[ "$T_AFTER" =~ ^[0-9] ]]; then
+        PCT=$(awk -v b="$T_BEFORE" -v a="$T_AFTER" 'BEGIN{
+            if(b>0) printf "%.0f", (b-a)/b*100; else print "N/A"}')
+        echo "  Time before: ${T_BEFORE}s   Time after: ${T_AFTER}s   Improvement: ${PCT}%"
+    else
+        echo "  Time before: ${T_BEFORE}s   Time after: ${T_AFTER}s"
+    fi
     echo ""
 
     # Parse analysis report for summary table
@@ -146,20 +166,26 @@ done
 # ── Step 4: summary table ──────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════════════════════"
-echo "  SUMMARY TABLE"
+echo "  SUMMARY TABLE  (timing = min of 5 runs, -Xint, no JIT)"
 echo "════════════════════════════════════════════════════════════════════════"
-printf "%-8s  %5s  %5s  %4s  %4s  %4s  %4s  %4s  %4s  %5s  %9s  %9s\n" \
-    "Test" "Sites" "MONO" "BI" "POLY" "MEGA" "Inl" "Dvt" "Grd" "TypeT" "T_before" "T_after"
-printf "%-8s  %5s  %5s  %4s  %4s  %4s  %4s  %4s  %4s  %5s  %9s  %9s\n" \
-    "--------" "-----" "-----" "----" "----" "----" "----" "----" "----" "-----" "---------" "---------"
+printf "%-8s  %5s  %5s  %4s  %4s  %4s  %4s  %4s  %4s  %5s  %9s  %9s  %6s\n" \
+    "Test" "Sites" "MONO" "BI" "POLY" "MEGA" "Inl" "Dvt" "Grd" "TypeT" "T_before" "T_after" "Improv"
+printf "%-8s  %5s  %5s  %4s  %4s  %4s  %4s  %4s  %4s  %5s  %9s  %9s  %6s\n" \
+    "--------" "-----" "-----" "----" "----" "----" "----" "----" "----" "-----" "---------" "---------" "------"
 
 for i in $(seq 1 12); do
-    printf "%-8s  %5s  %5s  %4s  %4s  %4s  %4s  %4s  %4s  %5s  %9s  %9s\n" \
+    b="${TC_BEFORE[$i]}"
+    a="${TC_AFTER[$i]}"
+    pct=$(awk -v bb="$b" -v aa="$a" 'BEGIN{
+        if(bb~/^[0-9]/ && aa~/^[0-9]/ && bb+0>0)
+            printf "%+.0f%%", (bb-aa)/bb*100
+        else print "N/A"}')
+    printf "%-8s  %5s  %5s  %4s  %4s  %4s  %4s  %4s  %4s  %5s  %9s  %9s  %6s\n" \
         "${TC_NAMES[$i]}" \
         "${TC_SITES[$i]}" \
         "${TC_MONO[$i]}" "${TC_BI[$i]}" "${TC_POLY[$i]}" "${TC_MEGA[$i]}" \
         "${TC_INL[$i]}" "${TC_DVT[$i]}" "${TC_GRD[$i]}" "${TC_TTEST[$i]}" \
-        "${TC_BEFORE[$i]}" "${TC_AFTER[$i]}"
+        "${TC_BEFORE[$i]}s" "${TC_AFTER[$i]}s" "$pct"
 done
 
 echo ""

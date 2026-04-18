@@ -25,10 +25,12 @@ import java.util.*;
  *   Generated layout:
  *     [entryNop]
  *     $iof_T0 = r instanceof T0; if $iof_T0 != 0 goto arm0;
- *     // fallthrough else arm: direct call to T1 (last target)
- *     $cast_T1 = (T1) r; specialinvoke $cast_T1.<T1: ret m()>(); goto done;
- *     arm0: $cast_T0 = (T0) r; specialinvoke $cast_T0.<T0: ret m()>(); goto done;
+ *     // fallthrough else arm: static call to T1 (last target)
+ *     $cast_T1 = (T1) r; staticinvoke <T1: ret m$mono(T1)>($cast_T1); goto done;
+ *     arm0: $cast_T0 = (T0) r; staticinvoke <T0: ret m$mono(T0)>($cast_T0); goto done;
  *     done: nop;
+ *   Each arm calls a static bridge method created in the target class.
+ *   invokestatic passes JVM verification regardless of caller/callee relationship.
  *
  * POLY (3–4 targets, withFallback=true)
  *   Generated layout:
@@ -63,6 +65,8 @@ public class JimpleRewriter {
     private int guardedCount     = 0;
     private int typeTestCount    = 0;
     private int skippedMegaCount = 0;
+
+    private final Map<SootMethod, SootMethod> staticBridgeCache = new HashMap<>();
 
     public JimpleRewriter(int inlineThreshold) {
         this.inlineThreshold = inlineThreshold;
@@ -317,10 +321,10 @@ public class JimpleRewriter {
      *   $iof_T0 = r instanceof T0;
      *   if $iof_T0 != 0 goto arm0;
      *   $cast_T1 = (T1) r;               ← else arm (T1, last target)
-     *   specialinvoke $cast_T1.<T1: ret m()>(args);
+     *   staticinvoke <T1: ret m$mono(T1)>($cast_T1, args);
      *   goto afterCall;
      *   arm0: $cast_T0 = (T0) r;
-     *   specialinvoke $cast_T0.<T0: ret m()>(args);
+     *   staticinvoke <T0: ret m$mono(T0)>($cast_T0, args);
      *   goto afterCall;
      *   [afterCall: whatever was after the original virtual call]
      *
@@ -394,8 +398,16 @@ public class JimpleRewriter {
             armCastUnits.add(Jimple.v().newAssignStmt(
                 castLocal, Jimple.v().newCastExpr(receiver, castType)));
 
-            SpecialInvokeExpr call = Jimple.v().newSpecialInvokeExpr(
-                castLocal, target.makeRef(), origArgs);
+            SootMethod bridge2 = createStaticBridge(target);
+            InvokeExpr call;
+            if (bridge2 != null) {
+                List<Value> bArgs = new ArrayList<>();
+                bArgs.add(castLocal);
+                bArgs.addAll(origArgs);
+                call = Jimple.v().newStaticInvokeExpr(bridge2.makeRef(), bArgs);
+            } else {
+                call = Jimple.v().newVirtualInvokeExpr(castLocal, target.makeRef(), origArgs);
+            }
             armCallUnits.add(returnTarget != null
                 ? Jimple.v().newAssignStmt(returnTarget, call)
                 : Jimple.v().newInvokeStmt(call));
@@ -459,15 +471,13 @@ public class JimpleRewriter {
     }
 
     /**
-     * Build one direct-call arm:
+     * Build one direct-call arm using a static bridge method.
+     *
      *   $cast_T = (T) receiver;
-     *   [lhs =] specialinvoke $cast_T.<T: ret m()>(args);
+     *   [lhs =] staticinvoke <T: ret m$mono(T, args)>($cast_T, args);
      *
-     * specialinvoke bypasses the vtable. Safe because the preceding instanceof
-     * check guarantees the runtime type is exactly T (or a subtype), and our
-     * analysis proved T is the only possible dispatch target.
-     *
-     * Units are returned in FORWARD order (cast first, then call).
+     * staticinvoke always passes JVM bytecode verification.
+     * Falls back to virtualinvoke on cast receiver if static bridge unavailable.
      */
     private List<Unit> buildDirectCallArm(SootMethod target, Local receiver,
                                            List<Value> origArgs, Local returnTarget,
@@ -480,18 +490,101 @@ public class JimpleRewriter {
             "$cast_" + cls.getShortName() + "_" + System.nanoTime(), castType);
         callerBody.getLocals().add(castLocal);
 
-        // cast FIRST (index 0)
         arm.add(Jimple.v().newAssignStmt(
             castLocal, Jimple.v().newCastExpr(receiver, castType)));
 
-        // call SECOND (index 1)
-        SpecialInvokeExpr directCall = Jimple.v().newSpecialInvokeExpr(
-            castLocal, target.makeRef(), origArgs);
+        SootMethod bridge = createStaticBridge(target);
+        InvokeExpr callExpr;
+        if (bridge != null) {
+            List<Value> bridgeArgs = new ArrayList<>();
+            bridgeArgs.add(castLocal);
+            bridgeArgs.addAll(origArgs);
+            callExpr = Jimple.v().newStaticInvokeExpr(bridge.makeRef(), bridgeArgs);
+        } else {
+            callExpr = Jimple.v().newVirtualInvokeExpr(castLocal, target.makeRef(), origArgs);
+        }
         arm.add(returnTarget != null
-            ? Jimple.v().newAssignStmt(returnTarget, directCall)
-            : Jimple.v().newInvokeStmt(directCall));
+            ? Jimple.v().newAssignStmt(returnTarget, callExpr)
+            : Jimple.v().newInvokeStmt(callExpr));
 
         return arm;
+    }
+
+    // ── Static bridge factory ────────────────────────────────────────
+
+    /**
+     * Create (or return cached) a static wrapper for {@code target}.
+     *
+     * The wrapper has signature: static <retType> <name>$mono(<DeclClass> r, <params...>)
+     * The body is a copy of the original with @this replaced by @parameter0.
+     * Callers use staticinvoke which always passes JVM bytecode verification.
+     *
+     * Returns null if the body has traps (we cannot copy them safely).
+     */
+    private SootMethod createStaticBridge(SootMethod target) {
+        if (staticBridgeCache.containsKey(target)) return staticBridgeCache.get(target);
+
+        if (!target.hasActiveBody()) {
+            try { target.retrieveActiveBody(); } catch (Exception e) {
+                staticBridgeCache.put(target, null); return null;
+            }
+        }
+        Body origBody = target.getActiveBody();
+        if (!origBody.getTraps().isEmpty()) {
+            staticBridgeCache.put(target, null); return null;
+        }
+
+        SootClass cls = target.getDeclaringClass();
+        String bridgeName = target.getName() + "$mono$" + cls.getShortName();
+
+        // Reuse if already added (e.g. if this method is called twice for same target)
+        for (SootMethod m : cls.getMethods()) {
+            if (m.getName().equals(bridgeName) && m.isStatic()) {
+                staticBridgeCache.put(target, m);
+                return m;
+            }
+        }
+
+        List<Type> paramTypes = new ArrayList<>();
+        paramTypes.add(cls.getType());                      // explicit receiver
+        paramTypes.addAll(target.getParameterTypes());
+
+        SootMethod bridge = new SootMethod(bridgeName, paramTypes,
+            target.getReturnType(), soot.Modifier.PUBLIC | soot.Modifier.STATIC);
+        cls.addMethod(bridge);
+
+        JimpleBody newBody = Jimple.v().newBody(bridge);
+        bridge.setActiveBody(newBody);
+
+        Map<Local, Local> renameMap = new HashMap<>();
+        for (Local l : origBody.getLocals()) {
+            Local fresh = Jimple.v().newLocal(l.getName() + "_br", l.getType());
+            newBody.getLocals().add(fresh);
+            renameMap.put(l, fresh);
+        }
+
+        Chain<Unit> newUnits = newBody.getUnits();
+        for (Unit u : origBody.getUnits()) {
+            if (u instanceof IdentityStmt id) {
+                Value rhs = id.getRightOp();
+                Local lhs = renameMap.get((Local) id.getLeftOp());
+                if (lhs == null) continue;
+                if (rhs instanceof ThisRef) {
+                    newUnits.add(Jimple.v().newIdentityStmt(lhs,
+                        Jimple.v().newParameterRef(cls.getType(), 0)));
+                } else if (rhs instanceof ParameterRef pr) {
+                    newUnits.add(Jimple.v().newIdentityStmt(lhs,
+                        Jimple.v().newParameterRef(pr.getType(), pr.getIndex() + 1)));
+                }
+            } else {
+                Unit cloned = (Unit) u.clone();
+                renameLocals(cloned, renameMap);
+                newUnits.add(cloned);
+            }
+        }
+
+        staticBridgeCache.put(target, bridge);
+        return bridge;
     }
 
     // ── Shared helper ────────────────────────────────────────────────
@@ -524,9 +617,9 @@ public class JimpleRewriter {
             inlinedCount);
         System.out.printf("  Devirtualised      : %3d  (virtualinvoke → concrete-class virtualinvoke)%n",
             devirtCount);
-        System.out.printf("  Guarded dispatch   : %3d  (instanceof + 2 direct calls)%n",
+        System.out.printf("  Guarded dispatch   : %3d  (instanceof + 2 staticinvoke calls)%n",
             guardedCount);
-        System.out.printf("  Type-test chain    : %3d  (instanceof chain + direct calls)%n",
+        System.out.printf("  Type-test chain    : %3d  (instanceof chain + staticinvoke calls)%n",
             typeTestCount);
         System.out.printf("  Skipped (MEGA)     : %3d%n", skippedMegaCount);
         System.out.printf("  Total transformed  : %3d%n",
