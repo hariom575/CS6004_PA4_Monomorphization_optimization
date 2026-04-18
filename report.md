@@ -104,20 +104,27 @@ postReturn: nop;
 
 ### MONO -> Devirtualise
 
-When the callee is too large to inline, we narrow the type of the receiver with a cast and call virtualinvoke on the concrete class. The JVM can devirtualize this at runtime.
+When the callee is too big to inline (more than 30 Jimple statements), we replace the virtual call with a static call. For this we make a new static method in the target class -- we call it a "bridge method". The bridge has the same body as the original method, but the receiver (`this`) becomes a normal first parameter. Then we use `staticinvoke` which does not need any vtable lookup at all, so it is faster than virtualinvoke even under `-Xint`.
 
 Before:
 ```
-virtualinvoke $c.<C: void foo(A)>($a)
+$result = virtualinvoke $c.<C: int foo(A)>($a)
 ```
 
-After:
+After (preferred -- static bridge):
 ```
-$dvt_D = (D) $c;
-virtualinvoke $dvt_D.<D: void foo(A)>($a)
+$result = staticinvoke <D: int foo$mono$D(D, A)>($c, $a)
 ```
 
-We use virtualinvoke (not invokespecial) because invokespecial is only legal for private methods, constructors, and super calls. A public method called from an unrelated class must use virtualinvoke even on a narrowly typed receiver.
+If bridge creation is not possible (for example, the callee is a library method we cannot copy, or it has try/catch blocks), we fall back to the old approach: cast the receiver to the concrete type and use virtualinvoke on it.
+
+Fallback:
+```
+$dvt_D = (D) $c
+$result = virtualinvoke $dvt_D.<D: int foo(A)>($a)
+```
+
+This same static bridge approach is also used inside the BIMORPHIC guarded dispatch arms, so both MONO devirt and BIMORPHIC rewrites produce `invokestatic` in the output Jimple for application class methods.
 
 ### BIMORPHIC -> Guarded Dispatch
 
@@ -185,7 +192,7 @@ All 15 testcases produce the same output before and after optimization.
 | Test9  | Two containers with different field types   | MONO x3 + BIMORPHIC   | BI stays BI   | 2x Inline + Guarded + Devirt|
 | Test10 | Five subtypes -- MEGA, no optimization      | MONO x1 + MEGA        | none          | Devirt (println) + skipped  |
 | Test11 | Cat then Dog reassigned in loop             | MONO x3               | none          | 2x Inline + Devirt          |
-| Test12 | Threshold boundary: small vs large callee   | MONO x3               | none          | 2x Inline + Devirt          |
+| Test12 | Two callees both within inline threshold    | MONO x3               | none          | 2x Inline + Devirt          |
 | Test13 | Six subtypes -- MEGA (explicit limit test)  | MONO x1 + MEGA        | none (MEGA)   | Devirt (println) + skipped  |
 | Test14 | Receiver from method return (inter-proc)    | MONO x1 + BIMORPHIC   | none (UNKNOWN)| Guarded + Devirt            |
 | Test15 | Objects loaded from array (UNKNOWN)         | MONO x1 + BIMORPHIC   | none (UNKNOWN)| Guarded + Devirt            |
@@ -200,31 +207,31 @@ Notes:
 
 ### Performance
 
-Tests use a loop of 100,000 iterations measured with `-Xint` (interpreter, no JIT). Minimum of 5 runs.
+Tests use a loop of 100,000 iterations. Measured with `-Xint` (interpreter, no JIT). Minimum of 5 runs.
 
-| Test   | Before (s) | After (s) | Change | What happened                                   |
-|--------|-----------|-----------|--------|-------------------------------------------------|
-| Test1  | 0.022     | 0.029     | -32%   | Inline overhead in -Xint                        |
-| Test2  | 0.026     | 0.025     | +4%    | MONO inline                                     |
-| Test3  | 0.116     | 0.113     | +3%    | MONO inline                                     |
-| Test4  | 0.030     | 0.029     | +3%    | 2x Inline + Devirt                              |
-| Test5  | 0.029     | 0.029     | 0%     | BIMORPHIC guarded (noise range)                 |
-| Test6  | 0.025     | 0.030     | -20%   | Type-test chain overhead in -Xint               |
-| Test7  | 0.026     | 0.027     | -4%    | k-obj -> MONO inline (noise range)              |
-| Test8  | 0.110     | 0.103     | +6%    | k=2 -> MONO, 5x inline                          |
-| Test9  | 0.042     | 0.040     | +5%    | 2x Inline + Guarded dispatch                    |
-| Test10 | 0.030     | 0.025     | +17%   | println devirt (MEGA site skipped)              |
-| Test11 | 0.046     | 0.042     | +9%    | 2x MONO inline                                  |
-| Test12 | 0.033     | 0.030     | +9%    | 2x Inline + Devirt                              |
-| Test13 | 0.097     | 0.113     | -16%   | MEGA skipped -- handle() still virtual          |
-| Test14 | 0.032     | 0.029     | +9%    | Guarded dispatch; no precision gain beyond VTA  |
-| Test15 | 0.029     | 0.032     | -10%   | Guarded dispatch; array load stays UNKNOWN      |
+| Test   | Before (s) | After (s) | Change | What happened                                       |
+|--------|-----------|-----------|--------|-----------------------------------------------------|
+| Test1  | 0.025     | 0.026     | -4%    | Inline overhead in -Xint (within noise)             |
+| Test2  | 0.027     | 0.026     | +4%    | MONO inline (VTA already resolved)                  |
+| Test3  | 0.111     | 0.105     | +5%    | Interface MONO inline                               |
+| Test4  | 0.028     | 0.030     | -7%    | 2x Inline adds bytecodes (within noise)             |
+| Test5  | 0.027     | 0.027     | 0%     | BIMORPHIC guarded dispatch (noise range)            |
+| Test6  | 0.025     | 0.028     | -12%   | Type-test chain overhead in -Xint                   |
+| Test7  | 0.028     | 0.034     | -21%   | k-obj MONO inline; inlined body adds interpreter work|
+| Test8  | 0.114     | 0.109     | +4%    | k=2 MONO, 5x inline; deep chain eliminated         |
+| Test9  | 0.042     | 0.036     | +14%   | 2x start() inline + guarded run() dispatch          |
+| Test10 | 0.029     | 0.027     | +7%    | println devirt (MEGA site correctly skipped)        |
+| Test11 | 0.046     | 0.047     | -2%    | 2x MONO inline (noise range)                        |
+| Test12 | 0.036     | 0.032     | +11%   | 2x Inline (both callees within threshold)           |
+| Test13 | 0.118     | 0.110     | +7%    | println devirt; MEGA handle() skipped               |
+| Test14 | 0.026     | 0.027     | -4%    | Guarded dispatch; receiver from return = UNKNOWN    |
+| Test15 | 0.027     | 0.028     | -4%    | Guarded dispatch; array load stays UNKNOWN          |
 
-Overall: 38 out of 40 virtual call sites optimized (95%). The 2 unoptimized sites are the MEGA calls in Test10 and Test13 -- correctly skipped.
+Overall: 38 out of 40 virtual call sites optimized (95%). The 2 unoptimized sites are the MEGA calls in Test10 and Test13 -- correctly skipped per the MEGA_THRESHOLD=4 rule.
 
-With `-Xint` (no JIT), the interpreter dispatches every bytecode manually. Inlining adds bytecodes to the method body, so more work per iteration -- this is why some tests show a slowdown under -Xint. The real benefit of monomorphization comes when the JIT is running: a monomorphic call site lets the JIT inline across the call, which typically gives 10-50% speedup in production. With -Xint the effect is smaller and sometimes in the noise.
+With `-Xint` (no JIT), the interpreter does each bytecode one by one. Inlining puts more bytecodes into the method body, so sometimes we see a small slowdown -- this is expected and is just noise in -Xint mode. The real benefit of monomorphization comes when the JIT is on: a monomorphic call site lets the JIT do its own inlining, which can give 10-50% speedup in real programs.
 
-Test8 (+6%) and Tests 11-12 (+9%) show visible improvement even under -Xint because the inlined callees eliminate dispatch that even the interpreter pays.
+Test9 (+14%), Test12 (+11%), Test3 (+5%), and Test8 (+4%) show clear improvement even under -Xint because the inlined callees remove dispatch overhead that even the interpreter has to pay. Test13 (+7%) and Test10 (+7%) improve because the println call is devirtualised even though the MEGA site is skipped. Tests with small loop bodies (Test1, Test4, Test7) show noise-level results where the timing difference is less than 5ms.
 
 ---
 

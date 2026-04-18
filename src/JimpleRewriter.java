@@ -67,6 +67,7 @@ public class JimpleRewriter {
     private int skippedMegaCount = 0;
 
     private final Map<SootMethod, SootMethod> staticBridgeCache = new HashMap<>();
+    private final Set<Unit> processedUnits = new HashSet<>();
 
     public JimpleRewriter(int inlineThreshold) {
         this.inlineThreshold = inlineThreshold;
@@ -119,6 +120,7 @@ public class JimpleRewriter {
     // ════════════════════════════════════════════════════════════════
 
     private void rewriteMono(CallSiteInfo site) {
+        if (processedUnits.contains(site.stmt)) return;  // already transformed in a prior pass
         SootMethod callee = site.singleTarget();
         if (shouldInline(callee)) {
             if (tryInline(site, callee)) {
@@ -127,30 +129,49 @@ public class JimpleRewriter {
             }
         }
         devirtualise(site, callee);
+        processedUnits.add(site.stmt);
         devirtCount++;
     }
 
     // ── Devirtualisation ────────────────────────────────────────────
 
     /**
-     * Cast receiver to the concrete type, then use virtualinvoke on the
-     * concrete class (JVM-verifier safe; no invokespecial on foreign class).
+     * Devirtualise a MONO call site using a static bridge method.
      *
-     * Incoming jumps that target site.stmt are redirected to castStmt so
-     * the cast is never skipped.
+     * Preferred path (static bridge available):
+     *   Before: virtualinvoke r.<Abstract: R foo()>()
+     *   After:  staticinvoke <Concrete: R foo$mono$Concrete(Concrete, ...)>(r, ...)
      *
-     * Before: virtualinvoke r.<Abstract: void foo()>()
-     * After:  $dvt = (Concrete) r
-     *         virtualinvoke $dvt.<Concrete: void foo()>()
+     * This eliminates the vtable lookup entirely — no cast, no dispatch.
+     * Running under -Xint (no JIT) the staticinvoke is directly resolved,
+     * so we get the full benefit without relying on JIT inlining.
+     *
+     * Fallback (bridge creation fails, e.g. callee has traps):
+     *   Before: virtualinvoke r.<Abstract: R foo()>()
+     *   After:  $dvt = (Concrete) r
+     *           virtualinvoke $dvt.<Concrete: R foo()>()
+     *   (eliminates the abstract-class vtable lookup; cast redirects incoming jumps)
      */
     private void devirtualise(CallSiteInfo site, SootMethod callee) {
         InvokeExpr oldExpr = site.invoke;
         if (!(oldExpr instanceof InstanceInvokeExpr iie)) return;
-
         Local receiver = (Local) iie.getBase();
+
+        // Preferred: static bridge → pure staticinvoke, no cast, no vtable
+        SootMethod bridge = createStaticBridge(callee);
+        if (bridge != null) {
+            List<Value> bridgeArgs = new ArrayList<>();
+            bridgeArgs.add(receiver);
+            bridgeArgs.addAll(iie.getArgs());
+            StaticInvokeExpr staticExpr =
+                Jimple.v().newStaticInvokeExpr(bridge.makeRef(), bridgeArgs);
+            patchInvokeExpr(site.stmt, staticExpr);
+            return;
+        }
+
+        // Fallback: cast + virtualinvoke on concrete type
         SootClass concreteClass = callee.getDeclaringClass();
         RefType   concreteType  = RefType.v(concreteClass);
-
         Body callerBody = site.containingMethod.getActiveBody();
         Chain<Unit> units = callerBody.getUnits();
 
@@ -161,8 +182,6 @@ public class JimpleRewriter {
         AssignStmt castStmt = Jimple.v().newAssignStmt(
             castLocal, Jimple.v().newCastExpr(receiver, concreteType));
         units.insertBefore(castStmt, site.stmt);
-
-        // Redirect incoming jumps: they must go to castStmt, not past it to site.stmt
         redirectJumpsTo(site.stmt, castStmt, callerBody);
 
         VirtualInvokeExpr newExpr = Jimple.v().newVirtualInvokeExpr(
@@ -295,8 +314,10 @@ public class JimpleRewriter {
     // ════════════════════════════════════════════════════════════════
 
     private void rewriteBimorphic(CallSiteInfo site) {
+        if (processedUnits.contains(site.stmt)) return;
         List<SootMethod> targets = new ArrayList<>(site.bestTargets());
         buildTypeTestChain(site, targets, false);
+        processedUnits.add(site.stmt);
         guardedCount++;
     }
 
@@ -305,8 +326,10 @@ public class JimpleRewriter {
     // ════════════════════════════════════════════════════════════════
 
     private void rewritePoly(CallSiteInfo site) {
+        if (processedUnits.contains(site.stmt)) return;
         List<SootMethod> targets = new ArrayList<>(site.bestTargets());
         buildTypeTestChain(site, targets, true);
+        processedUnits.add(site.stmt);
         typeTestCount++;
     }
 
@@ -615,7 +638,7 @@ public class JimpleRewriter {
         System.out.println("\n── Rewrite summary (Jimple transformations applied) ────────");
         System.out.printf("  Inlined            : %3d  (callee body pasted in, vtable gone)%n",
             inlinedCount);
-        System.out.printf("  Devirtualised      : %3d  (virtualinvoke → concrete-class virtualinvoke)%n",
+        System.out.printf("  Devirtualised      : %3d  (virtualinvoke → staticinvoke via bridge; fallback: cast + virtualinvoke)%n",
             devirtCount);
         System.out.printf("  Guarded dispatch   : %3d  (instanceof + 2 staticinvoke calls)%n",
             guardedCount);

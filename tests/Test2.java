@@ -1,11 +1,13 @@
-// Test2: MONO — PTA narrows CHA from 2 targets to 1.
+// Test2: MONO — VTA narrows CHA from 2 targets to 1.
 //
-// CHA sees both C2.foo and D2.foo as targets for c.foo(a).
-// PTA observes only new D2() is allocated for c → narrows to MONO.
+// Pure CHA sees both C2.foo and D2.foo as targets for c.foo(a).
+// VTA (applied internally by Soot's call graph) observes only new D2()
+// is allocated for c → narrows to MONO at the CHA/VTA layer.
+// PTA adds no further precision here (already MONO after VTA).
 // The commented-out new C2() line shows what would cause BIMORPHIC.
 //
 // Expected output: 100
-// Expected transformation: c.foo(a) devirtualised to D2.foo
+// Expected transformation: c.foo(a) inlined (D2.foo body pasted in)
 
 class A2 {
     int x;

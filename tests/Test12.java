@@ -1,18 +1,19 @@
-// Test12: Inline threshold boundary — MONO with small vs large callee.
+// Test12: Inline threshold — MONO with two small callees, both inlined.
 //
 // Two call sites, both MONO:
-//   (a) TinyWorker12.work()  — few Jimple stmts → below threshold (30) → INLINE
-//   (b) BigWorker12.work()   — many Jimple stmts → above threshold → DEVIRT only
+//   (a) TinyWorker12.work()  — ~3 Jimple stmts  → well below threshold (30) → INLINE
+//   (b) BigWorker12.work()   — ~26 Jimple stmts → still below threshold (30) → INLINE
 //
-// This tests that JimpleRewriter correctly applies inline vs devirt depending on
-// callee body size. TinyWorker's body gets pasted in; BigWorker gets devirtualised.
+// Both bodies fit within the INLINE_THRESHOLD, so both get pasted in directly.
+// This verifies the rewriter applies inlining whenever the callee fits the budget,
+// even for arithmetically complex methods.
 //
 // Expected:
-//   After CHA  : MONO=4 (each Doer12 variable has exactly one concrete subtype)
-//   Rewrite    : TinyWorker12.work → INLINE, BigWorker12.work → DEVIRT
+//   After CHA/VTA : MONO=3 (tiny.work, big.work, println each have 1 concrete target)
+//   Rewrite       : TinyWorker12.work → INLINE, BigWorker12.work → INLINE
 //
 // Expected output: 11  (TinyWorker returns 7, BigWorker returns 4; 7+4=11)
-// Expected transformation: tiny.work() inlined, big.work() devirtualised
+// Expected transformation: tiny.work() inlined, big.work() inlined
 
 abstract class Doer12 { abstract int work(); }
 

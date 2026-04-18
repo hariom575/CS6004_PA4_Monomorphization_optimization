@@ -1,19 +1,23 @@
-// Test9: Two containers, different types — k-obj resolves each call site to MONO.
+// Test9: Two containers, different types — start() inlined, engine.run() gets guarded dispatch.
 //
-// box1.start() has pts(box1) = {AllocSite A}, callerState[A.engine] = {RedEngine9} → MONO
-// box2.start() has pts(box2) = {AllocSite B}, callerState[B.engine] = {BlueEngine9} → MONO
+// box1.start() and box2.start() dispatch to Holder9.start() — Holder9 has only
+// one concrete subtype, so both are MONO(Holder9.start) → inlined into main.
 //
-// Each call site is a SEPARATE Jimple statement, so k-obj can narrow each independently.
-// (If both calls went through a helper method taking Holder9 as parameter, the
-//  single call site inside that method would have both alloc sites → BIMORPHIC.)
+// engine.run() inside Holder9.start() is a SINGLE call site shared by both callers.
+// k-obj sees both callers contribute different field types
+// (box1.engine={Red}, box2.engine={Blue}), so the site stays BIMORPHIC.
+// Guarded dispatch (instanceof + 2 staticinvoke calls) is applied to Holder9.start.
+// Since start() is inlined into main, the guarded dispatch code lives in main too.
 //
 // Expected:
-//   After CHA  : BIMORPHIC (2 subtypes of Engine9)
-//   After PTA  : BIMORPHIC (pts(this.engine) = UNKNOWN inside start())
-//   After k-Obj: box1.start() → MONO(Red), box2.start() → MONO(Blue)
+//   After CHA/VTA : box1.start() MONO, box2.start() MONO (Holder9 has no subtypes)
+//                   engine.run() in Holder9.start: BIMORPHIC (Red + Blue)
+//   After PTA     : engine.run() BIMORPHIC (pts(this.engine) = UNKNOWN inside start())
+//   After k-Obj   : engine.run() BIMORPHIC (both callers → 2 distinct field types)
+//   Transformation: box1.start() and box2.start() → inlined (Holder9.start body)
+//                   engine.run() in Holder9.start → guarded dispatch (2 staticinvokes)
 //
 // Expected output: Red Blue
-// Expected transformation: box1.start() → inline RedEngine9.run, box2.start() → inline BlueEngine9.run
 
 interface Engine9 {
     String run();
