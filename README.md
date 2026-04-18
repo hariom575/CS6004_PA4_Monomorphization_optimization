@@ -103,6 +103,40 @@ Same pattern as BIMORPHIC extended to 3–4 checks with a final fallback `virtua
 
 ---
 
+## Setup
+
+> **Note:** The DaCapo JAR and TamiFlex outputs are not stored in this repository (too large for GitHub). Download them manually before running the benchmark.
+
+### Step 1 — Clone the repo
+
+```bash
+git clone https://github.com/hariom575/CS6004_PA4_Monomorphization_optimization.git
+cd CS6004_PA4_Monomorphization_optimization
+```
+
+### Step 2 — Get the Soot JAR (already in repo)
+
+`soot-4.6.0-jar-with-dependencies.jar` is included in the repository root.
+
+### Step 3 — Get DaCapo + TamiFlex outputs (for benchmark only)
+
+Download the DaCapo benchmark JAR and place it inside `pa4-benchmark/`:
+
+```bash
+# Download DaCapo 9.12 MR1
+wget https://sourceforge.net/projects/dacapobench/files/9.12-bach-MR1/dacapo-9.12-MR1-bach.jar \
+     -O pa4-benchmark/dacapo-9.12-MR1-bach.jar
+```
+
+Then obtain `tami-outs.zip` (TamiFlex reflection logs for all 5 benchmarks) separately and extract it:
+
+```bash
+cp /path/to/tami-outs.zip pa4-benchmark/
+unzip pa4-benchmark/tami-outs.zip -d pa4-benchmark/
+```
+
+---
+
 ## Running
 
 ```bash

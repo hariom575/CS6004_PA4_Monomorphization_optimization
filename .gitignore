@@ -1,1 +1,10 @@
 .vscode/
+
+# Large binary files — download manually (see README Setup section)
+pa4-benchmark/dacapo-9.12-MR1-bach.jar
+pa4-benchmark/tami-outs.zip
+pa4-benchmark/tami-outs/
+
+# Compiled class files
+*.class
+pa4001.zip
