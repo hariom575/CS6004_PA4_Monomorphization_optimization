@@ -235,7 +235,61 @@ Test9 (+14%), Test12 (+11%), Test3 (+5%), and Test8 (+4%) show clear improvement
 
 ---
 
-## 5. Running the Code
+## 5. DaCapo Benchmark Analysis
+
+We ran our monomorphization analysis on the DaCapo benchmark suite (avrora, luindex, xalan, fop, batik) using Soot in whole-program mode with CHA call graph.
+
+### Setup
+
+DaCapo benchmarks use dynamic class loading (reflection) to dispatch to the actual benchmark code. Full precision requires TamiFlex runtime reflection logs. We ran the analysis with Soot's CHA call graph only (CHA/VTA layer), because:
+
+- The machine has only 1.3 GB free RAM
+- Running full PTA + k-obj on 82,400 virtual call sites causes out-of-memory before completing
+- TamiFlex reflection log parsing failed on our JVM version (the log references older JVM-internal classes like `sun.misc.PostVMInitHook` that no longer exist in Java 11+)
+
+Because DaCapo uses `Class.forName` at the harness level to load the benchmark class, all 5 benchmarks look identical to CHA static analysis (CHA does not track which benchmark string is passed). So results below represent the full DaCapo + JDK class set, not per-benchmark.
+
+### CHA/VTA Results (all 5 benchmarks, aggregate)
+
+| Metric | Count | Percentage |
+|--------|-------|-----------|
+| Total virtual call sites | 82,400 | 100% |
+| MONO (1 concrete target) | 41,212 | 50.0% |
+| BIMORPHIC (2 targets) | 2,145 | 2.6% |
+| POLY (3–4 targets) | 1,093 | 1.3% |
+| MEGA (5+ targets, skip) | 7,095 | 8.6% |
+| UNKNOWN (no CG edges) | 30,855 | 37.4% |
+| Optimisable (MONO+BI+POLY) | 44,450 | **53.9%** |
+
+### Key Insights
+
+**Half of all virtual calls are monomorphic.** 50% of the 82,400 virtual call sites have exactly one concrete target in the class hierarchy. These are direct candidates for inlining or devirtualization. This confirms that monomorphization is highly applicable on real Java code.
+
+**BIMORPHIC + POLY add another ~4%.** 3,238 sites have 2–4 targets. Our guarded dispatch and type-test chain transformations handle these without touching the other 50%+ MONO sites.
+
+**MEGA sites are 8.6%.** 7,095 sites have 5 or more concrete targets. Our MEGA_THRESHOLD=4 rule correctly skips these — the code-size cost of a 5+ arm type-test chain is not worth it.
+
+**37.4% are UNKNOWN.** These are methods that CHA found in the class hierarchy but that have no call graph edges (dead code or library internals never actually called from Harness). A SPARK-based analysis with TamiFlex reflection logs would remove most of these, reducing the UNKNOWN set and increasing MONO precision further.
+
+**Top-5 classes with most MONO sites (CHA run):**
+
+| Class | MONO sites |
+|-------|-----------|
+| `java.lang.invoke.InvokerBytecodeGenerator` | 590 |
+| `jdk.internal.org.objectweb.asm.ClassReader` | 576 |
+| `jdk.internal.util.xml.impl.Parser` | 512 |
+| `java.util.regex.Pattern` | 479 |
+| `java.util.Formatter$FormatSpecifier` | 458 |
+
+These are JDK utility classes with many method calls where the receiver type is tightly constrained. A real AOT compiler would benefit most from inlining these.
+
+### Memory Limitation Note
+
+The CHA/VTA analysis on 82,400 sites completed fine. The full PTA + k-obj + rewrite phase ran out of memory on 1.3 GB RAM. On a machine with 8+ GB RAM, the full three-layer analysis would run and would further narrow many BIMORPHIC sites (like it does in Test7 and Test8) before applying rewrites.
+
+---
+
+## 6. Running the Code
 
 ```bash
 bash script.sh

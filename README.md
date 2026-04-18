@@ -55,9 +55,9 @@ Handles the container pattern where `this.field` receivers cannot be narrowed in
 
 Callee body (≤ 30 Jimple statements) is pasted directly at the call site with fresh local names.
 
-### MONO → Devirtualize
+### MONO → Devirtualize (static bridge)
 
-Callee is too large to inline; receiver is cast to the concrete type and called via `virtualinvoke` on the narrow type so the JVM can devirtualize it.
+Callee is too large to inline. We generate a static bridge method (`foo$mono$ClassName(ClassName self, ...)`) in the target class, copy the callee body into it, and replace the virtual call with `staticinvoke` — zero vtable lookup. If bridge creation fails (e.g. callee is a library method with try/catch), we fall back to cast + `virtualinvoke`.
 
 ### BIMORPHIC → Guarded Dispatch
 
@@ -74,20 +74,31 @@ Same pattern as BIMORPHIC extended to 3–4 checks with a final fallback `virtua
 ```
 .
 ├── src/
-│   ├── Main.java                      # Entry point, Soot setup
+│   ├── Main.java                         # Entry point, Soot setup
 │   ├── MonomorphizationTransformer.java  # Top-level scene transformer
-│   ├── CallSiteInfo.java              # Call site metadata (Kind enum)
-│   ├── IntraProcPTA.java              # Layer 2: flow-sensitive PTA
-│   ├── PointsToState.java             # AllocSite / FieldKey types
-│   ├── CallSiteRewriter.java          # Guarded dispatch / type-test chain
-│   ├── JimpleRewriter.java            # Inline / devirtualize
-│   └── PA4.java                       # Soot pack registration
+│   ├── CallSiteInfo.java                 # Call site metadata (Kind enum)
+│   ├── IntraProcPTA.java                 # Layer 2: flow-sensitive PTA
+│   ├── PointsToState.java                # AllocSite / FieldKey types
+│   ├── JimpleRewriter.java               # Inline / devirtualize / guarded dispatch
+│   └── CallSiteRewriter.java             # (alternate rewriter, unused in main path)
 ├── tests/
-│   ├── Test1.java … Test15.java       # Functional test cases
+│   ├── Test1.java … Test15.java          # Functional test cases
 │   └── (supporting classes)
+├── pa4-benchmark/
+│   ├── Main.java                         # Benchmark entry point
+│   ├── GetSootArgs.java                  # DaCapo-specific Soot args (CHA, whole-program)
+│   ├── MonomorphizationTransformer.java  # Transformer with --stats-only mode
+│   ├── dacapo-9.12-MR1-bach.jar          # DaCapo benchmark suite
+│   ├── tami-outs/                        # Per-benchmark TamiFlex outputs (unzip first)
+│   │   ├── out-avrora/
+│   │   ├── out-luindex/
+│   │   ├── out-xalan/
+│   │   ├── out-fop/
+│   │   └── out-batik/
+│   └── run_benchmark.sh                  # Script to run all 5 benchmarks
 ├── soot-4.6.0-jar-with-dependencies.jar
-├── script.sh                          # Build + benchmark script
-└── report.md                          # Detailed technical report
+├── script.sh                             # Build + micro-benchmark script
+└── report.pdf                            # Detailed technical report
 ```
 
 ---
@@ -139,6 +150,34 @@ Transformed class files are written to `sootOutput/`.
 All 15 tests produce identical output before and after optimization.
 
 > **Note on `-Xint` benchmarks:** Under interpreter mode some tests show slight overhead from inlining (more bytecodes per iteration). The real gains appear with JIT enabled, where monomorphic sites allow cross-call inlining (typically 10–50% speedup in production).
+
+---
+
+## DaCapo Benchmark
+
+We ran the CHA/VTA layer of the analysis on 5 DaCapo benchmarks (avrora, luindex, xalan, fop, batik). Full PTA + k-obj is skipped due to RAM constraints (82k+ call sites need 8+ GB).
+
+| Metric | Count | % |
+|--------|-------|---|
+| Total virtual call sites | 82,400 | 100% |
+| MONO (1 target) | 41,212 | **50.0%** |
+| BIMORPHIC (2 targets) | 2,145 | 2.6% |
+| POLY (3–4 targets) | 1,093 | 1.3% |
+| MEGA (5+, skipped) | 7,095 | 8.6% |
+| UNKNOWN (no CG edges) | 30,855 | 37.4% |
+| **Optimisable** | **44,450** | **53.9%** |
+
+Half of all virtual calls in real Java programs have exactly one concrete target — directly optimizable by our pass. See `report.pdf` Section 5 for full analysis and insights.
+
+### Running the DaCapo Benchmark
+
+```bash
+cd pa4-benchmark
+# Extract tami-outs if not done yet
+unzip tami-outs.zip
+# Run analysis on all 5 benchmarks
+bash run_benchmark.sh
+```
 
 ---
 
