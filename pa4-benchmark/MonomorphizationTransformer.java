@@ -31,8 +31,6 @@ public class MonomorphizationTransformer extends SceneTransformer {
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
 
-        boolean statsOnly = Boolean.getBoolean("stats.only");
-
         cg = Scene.v().getCallGraph();
 
         List<CallSiteInfo> sites = collectCallSites(cg);
@@ -41,12 +39,9 @@ public class MonomorphizationTransformer extends SceneTransformer {
         System.out.println(" Monomorphization Analysis  (k=" + K + ")");
         System.out.println("════════════════════════════════════════");
         System.out.println("Total virtual call sites: " + sites.size());
+        // Soot builds call graph using CHA and then refines with VTA internally,
+        // so this first layer already includes VTA-level precision.
         printDistribution("After CHA/VTA", sites, false, false);
-
-        if (statsOnly) {
-            printBenchmarkSummary(sites);
-            return;
-        }
 
         refinePTA(sites);
         printDistribution("After PTA (intra-proc)", sites, true, false);
@@ -56,40 +51,11 @@ public class MonomorphizationTransformer extends SceneTransformer {
 
         printDetailedReport(sites);
 
+        // ── Apply Jimple transformations ─────────────────────────
         System.out.println("\n── Applying Jimple rewrites ────────────────────────────────");
         JimpleRewriter rewriter = new JimpleRewriter(INLINE_THRESHOLD);
         rewriter.rewriteAll(sites);
         rewriter.printRewriteSummary();
-    }
-
-    private void printBenchmarkSummary(List<CallSiteInfo> sites) {
-        long mono    = sites.stream().filter(CallSiteInfo::isMono).count();
-        long bi      = sites.stream().filter(CallSiteInfo::isBimorphic).count();
-        long poly    = sites.stream().filter(CallSiteInfo::isPoly).count();
-        long mega    = sites.stream().filter(CallSiteInfo::isMega).count();
-        long unknown = sites.stream().filter(s -> s.kind == CallSiteInfo.Kind.UNKNOWN).count();
-        long total   = sites.size();
-        long optimisable = mono + bi + poly;
-
-        System.out.println("\n── Benchmark Summary (CHA/VTA layer) ────────────────────────");
-        System.out.printf("  Total virtual call sites : %d%n", total);
-        System.out.printf("  MONO      (1 target)     : %d  (%.1f%%)%n", mono,    100.0*mono/total);
-        System.out.printf("  BIMORPHIC (2 targets)    : %d  (%.1f%%)%n", bi,      100.0*bi/total);
-        System.out.printf("  POLY      (3-4 targets)  : %d  (%.1f%%)%n", poly,    100.0*poly/total);
-        System.out.printf("  MEGA      (5+ targets)   : %d  (%.1f%%)%n", mega,    100.0*mega/total);
-        System.out.printf("  UNKNOWN   (no CG edges)  : %d  (%.1f%%)%n", unknown, 100.0*unknown/total);
-        System.out.printf("  Optimisable (MONO+BI+POLY): %d  (%.1f%%)%n", optimisable, 100.0*optimisable/total);
-
-        System.out.println("\n  Top-5 classes by MONO sites:");
-        sites.stream()
-            .filter(CallSiteInfo::isMono)
-            .collect(java.util.stream.Collectors.groupingBy(
-                s -> s.containingMethod.getDeclaringClass().getName(),
-                java.util.stream.Collectors.counting()))
-            .entrySet().stream()
-            .sorted(Map.Entry.<String,Long>comparingByValue().reversed())
-            .limit(5)
-            .forEach(e -> System.out.printf("    %-60s  %d%n", e.getKey(), e.getValue()));
     }
 
     // ─────────────────────────────────────────────────────────────

@@ -14,7 +14,6 @@
 #   cd pa4-benchmark
 #   bash run_benchmark.sh
 
-set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SOOT_JAR="$SCRIPT_DIR/../soot-4.6.0-jar-with-dependencies.jar"
